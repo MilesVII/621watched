@@ -1,0 +1,26 @@
+{
+	"manifest_version": 2,
+	"name": "e621 Subscriptions",
+	"version": "1.0",
+
+	"description": "Adds Watched/Subscribe feature to e621.net",
+
+	"icons": {
+		"48": "graphics/e621.svg"
+	},
+
+	"permissions": [
+		"storage"
+	],
+
+	"browser_action": {
+		"default_icon": "graphics/e621.svg",
+		"default_title": "E621 Watched",
+		"default_popup": "popup/popup.html"
+	},
+
+	"content_scripts": [{
+		"matches": ["*://*.e621.net/*"],
+		"js": ["combatfox.js"]
+	}]
+}
