@@ -1,11 +1,9 @@
 {
 	"manifest_version": 2,
 	"name": "e621 Subscriptions",
-	"version": "1.6",
+	"version": "1.6.2",
 
 	"description": "Adds Watched/Subscribe feature to e621.net",
-
-	"content_security_policy": "script-src 'self' https://*.e621.net; object-src 'self'",
 
 	"icons": {
 		"96": "graphics/e621.png"

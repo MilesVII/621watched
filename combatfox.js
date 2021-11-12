@@ -5,8 +5,8 @@ const UNSB_TITLE = "Unsubscribe from this tag";
 const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
 const SBAI_UID = "sbai_uid";
 const WATCHED_MENUBUTTON_CAPTION = "Watched";
-const IS_CHROME = false; // Reference to "chrome" instead of "browser"
-const TAG_PER_QUERY_LIMIT = 6;
+const IS_CHROME = true; // Reference to "chrome" instead of "browser"
+const TAG_PER_QUERY_LIMIT = 40;
 const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
 const MERGE_LOGGING = false;
@@ -29,7 +29,6 @@ function loadedSubscriptions(result){
 
 /////////////////////////////////////////////////////////////////////////////////////
 //Default page processor
-
 
 function toggleSubscription(event){
 	if (VERBOSE_LOGGING)

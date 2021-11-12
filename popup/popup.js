@@ -1,6 +1,6 @@
-const IS_CHROME = false;
-const TAG_PER_QUERY_LIMIT = 6;
-const DEBUG_LOGGING = true;
+const IS_CHROME = true;
+const TAG_PER_QUERY_LIMIT = 40;
+const DEBUG_LOGGING = false;
 const ERROR_LOGGING = true;
 
 let storedTags = [];
