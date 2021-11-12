@@ -1,7 +1,7 @@
 const IS_CHROME = false;
 const ADVANCED_CHECKING = true;
 const TAG_PER_QUERY_LIMIT = 6;
-const DEBUG_LOGGING = true;
+const DEBUG_LOGGING = false;
 const ERROR_LOGGING = true;
 
 var storedTags = [];
@@ -22,6 +22,7 @@ function loadedSubscriptions(result){
 			load("counterDictionary", counterDictionaryLoad);
 		load("lastSeen", checkForNewImages);
 	}
+	initIO();
 }
 
 function refresh(){
@@ -220,12 +221,45 @@ function refreshTagDelta(){
 			var edelta = document.createElement("span");
 			if (delta == 0)
 				edelta.style.color = "rgba(255, 255, 255, .25)";
-			else
+			else if (delta > 0)
 				delta = "+" + delta;
 			edelta.textContent = " " + delta;
 			tags[i].parentNode.appendChild(edelta);
 		}
 	}
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+//Backup Options
+
+function showBackupOptions(){
+	document.getElementById("backupshow_button").style.display = "none";
+	document.getElementById("backup").style.display = "block";
+}
+
+function importTags(){
+	storedTags = document.getElementById("io").value.split("\n");
+	save({"subscriptions": storedTags});
+	document.getElementById("import_button").textContent = "Saved succesfully. Please reopen the window";
+}
+
+function exportTags(){
+	loadTagsToIO();
+	var io = document.getElementById("io");
+	io.focus();
+	io.select();
+	document.execCommand("copy");
+}
+
+function loadTagsToIO(){
+	document.getElementById("io").value = storedTags.join("\n");
+}
+
+function initIO(){
+	document.getElementById("import_button").addEventListener("click", importTags);
+	document.getElementById("backupshow_button").addEventListener("click", showBackupOptions);
+	document.getElementById("export_button").addEventListener("click", exportTags);
+	loadTagsToIO();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
