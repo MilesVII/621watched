@@ -1,15 +1,25 @@
-const IS_CHROME = true;
+const IS_CHROME = false;
+const ADVANCED_CHECKING = true;
 const TAG_PER_QUERY_LIMIT = 6;
+const DEBUG_LOGGING = true;
 const ERROR_LOGGING = true;
 
 var storedTags = [];
-
+if (ADVANCED_CHECKING){
+	var oldCounterDictionary;
+	var newCounterDictionary = {};
+}
 load("subscriptions", loadedSubscriptions);
 
 function loadedSubscriptions(result){
 	if (result != null && result.hasOwnProperty("subscriptions")){
 		storedTags = result.subscriptions;
 		refresh();
+		for (var i = 0; i < storedTags.length; ++i){
+			newCounterDictionary[storedTags[i]] = -1;
+		}
+		if (ADVANCED_CHECKING)
+			load("counterDictionary", counterDictionaryLoad);
 		load("lastSeen", checkForNewImages);
 	}
 }
@@ -28,7 +38,7 @@ function refresh(){
 	//**Reference to combatfox.js:linkify()
 	var watchedButton = document.getElementById("viewWatched");
 	var qurl = generateURL(1, generateQueries()[0]);
-	save({watchTower: {url: qurl, page: 1}});
+	save({"watchTower": {"url": qurl, "page": 1}});
 	watchedButton.href = qurl;
 	watchedButton.target = "_blank";
 	watchedButton.style.display = storedTags.length == 0 ? "none" : "block";
@@ -101,6 +111,8 @@ function onSlavePageLoad() {
 	}
 	var slave = new DOMParser().parseFromString(this.responseText, "text/html");
 	retrieveIdArrayFromPageContent(slave, idArray);
+	if (ADVANCED_CHECKING)
+		reloadNewCounterDictionary(slave.getElementById("tag-sidebar"));
 	tryDoneSlaveLoading();
 }
 
@@ -165,6 +177,55 @@ function doneChecking(){
 		echo = counter + " new images";
 
 	setCheckingStatus(echo);
+	if (ADVANCED_CHECKING)
+		refreshTagDelta();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+//Advanced checking
+
+function counterDictionaryLoad(result){
+	if (result != null && result.hasOwnProperty("counterDictionary")){
+		oldCounterDictionary = JSON.parse(result.counterDictionary);
+		if (DEBUG_LOGGING){
+			console.log("Loaded oldCounterDictionary");
+			console.log(oldCounterDictionary);
+		}
+	}
+}
+
+function reloadNewCounterDictionary(ul){
+	var sidebar = ul.getElementsByTagName("li");
+	for (var i = 0; i < sidebar.length; ++i){
+		var counter = sidebar[i].getElementsByClassName("post-count")[0];
+		var tag = getTagFromLi(sidebar[i]);
+		newCounterDictionary[tag] = parseInt(counter.textContent);
+	}
+	if (DEBUG_LOGGING){
+		console.log("refreshed newCounterDictionary");
+		console.log(newCounterDictionary);
+	}
+}
+
+function refreshTagDelta(){
+	var tags = document.getElementById("watchedTags").getElementsByTagName("a");
+	for (var i = 0; i < tags.length; ++i){
+		var tagname = tags[i].textContent.trim();
+
+		if (oldCounterDictionary != null && 
+		    oldCounterDictionary[tagname] != null && 
+		    newCounterDictionary[tagname] != null){
+			var delta = (newCounterDictionary[tagname] - oldCounterDictionary[tagname]);
+
+			var edelta = document.createElement("span");
+			if (delta == 0)
+				edelta.style.color = "rgba(255, 255, 255, .25)";
+			else
+				delta = "+" + delta;
+			edelta.textContent = " " + delta;
+			tags[i].parentNode.appendChild(edelta);
+		}
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -204,4 +265,18 @@ function generateQueries(){
 //Retrieve publication id from preview node
 function getId(preview){
 	return parseInt(preview.id.substring(1), 10);
+}
+
+function getTagFromLi(li){
+	var tagLinks = li.getElementsByTagName("a");
+	for (var j = 0; j < tagLinks.length; ++j){
+		if (isTagAnchor(tagLinks[j])){
+			return tagLinks[j].textContent.trim();
+		}
+	}
+}
+
+//Detect if provided element is tag link
+function isTagAnchor(element){
+	return (element.hasAttribute("href") && element.href.includes("/post/search?tags=") && !element.hasAttribute("style"));
 }

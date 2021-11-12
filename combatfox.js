@@ -3,8 +3,9 @@ const UNSB_MARK = "XwX";
 const SUBS_TITLE = "Subscribe to this tag";
 const UNSB_TITLE = "Unsubscribe from this tag";
 const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
-const IS_CHROME = true; // Reference to "chrome" instead of "browser"
+const IS_CHROME = false; // Reference to "chrome" instead of "browser"
 const IS_BRAVE = true; // Do not use 'this' in event details to refer to subscription button //Lock on true
+const ADVANCED_CHECKING = true; // Improved embedTrendingTags()
 const TAG_PER_QUERY_LIMIT = 6;
 const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
@@ -50,7 +51,7 @@ function toggleSubscription(event){
 		sender.textContent = UNSB_MARK;
 		sender.title = UNSB_TITLE;
 		storedTags.push(tag);
-		save({subscriptions: storedTags});
+		save({"subscriptions": storedTags});
 		if (DEBUG_LOGGING)
 			console.log("Added successfully");
 	} else {
@@ -61,8 +62,8 @@ function toggleSubscription(event){
 			sender.textContent = SUBS_MARK;
 			sender.title = SUBS_TITLE;
 			storedTags.splice(i, 1);
-			save({subscriptions: storedTags});
-			save({lastSeen: 0})
+			save({"subscriptions": storedTags});
+			save({"lastSeen": 0})
 			if (DEBUG_LOGGING)
 				console.log("Removed");
 		} else if (ERROR_LOGGING){
@@ -99,7 +100,7 @@ var currentPage;
 //Event listener for Watched button (and paginator)
 function viewWatched(event){
 	var qurl = generateURL(event.detail.page, generateQueries()[0]);
-	save({watchTower: {url: qurl, page: event.detail.page}});
+	save({"watchTower": {"url": qurl, "page": event.detail.page}});
 	window.location.href = qurl;
 	//window.open(qurl, "_blank");
 }
@@ -184,10 +185,15 @@ function doneSlaveProcessing(){
 	if (currentPage == 1){
 		for (var i = 0; i < masterPreviews.length; ++i){
 			if (masterPreviews[i].nodeType == 1){
-				save({lastSeen: getId(masterPreviews[i])});
+				save({"lastSeen": getId(masterPreviews[i])});
 				break;
 			}
 		}
+	}
+
+	//save counters data for advanced checking
+	if (ADVANCED_CHECKING){
+		saveCounters();
 	}
 }
 
@@ -222,7 +228,15 @@ function tryEmbedPreview(slave, master, override){
 //Append list of trending tags from slave queries
 function embedTrendingTags(node){
 	linkifyTags(node);
-	document.getElementById("tag-sidebar").parentNode.append(node);
+	if (ADVANCED_CHECKING){
+		var list = node.childNodes;
+		for (var i = 0; i < list.length; ++i){
+			if (list[i].nodeType == 1)
+				document.getElementById("tag-sidebar").append(list[i--]); //hell is that
+		}
+	} else {
+		document.getElementById("tag-sidebar").parentNode.append(node);
+	}
 }
 
 //Add event dispatching to inform processor that page is changed
@@ -244,25 +258,21 @@ function overwriteSearchInput(){
 /////////////////////////////////////////////////////////////////////////////////////
 //Utils
 
-//Detect if provided element is tag link
-function isTagAnchor(element){
-	return (element.hasAttribute("href") && element.href.includes("/post/search?tags=") && !element.hasAttribute("style"));
-}
-
 //Add subscription buttons to tag list
 function linkifyTags(ul){
 	if (ul){
 		var tagList = ul.getElementsByTagName("li");
 		for (var i = 0; i < tagList.length; ++i){
 			if (tagList[i].className.startsWith("tag-type")){
-				var tagLinks = tagList[i].getElementsByTagName("a");
+				/*var tagLinks = tagList[i].getElementsByTagName("a");
 				var tag = null;
 				for (var j = 0; j < tagLinks.length; ++j){
 					if (isTagAnchor(tagLinks[j])){
 						tag = tagLinks[j].textContent.trim();
 						break;
 					}
-				}
+				}*/
+				var tag = getTagFromLi(tagList[i]);
 
 				if (!tag){
 					continue;
@@ -298,7 +308,7 @@ function parsePageId(url){
 }
 
 function generateWatchedEventCode(page){
-	return "document.head.dispatchEvent(new CustomEvent('viewWatched', {detail:{page: " + page + "}}));";
+	return "document.head.dispatchEvent(new CustomEvent(\"viewWatched\", {\"detail\":{\"page\": " + page + "}}));";
 }
 
 function generateSubscriptionButton(tag){
@@ -310,9 +320,9 @@ function generateSubscriptionButton(tag){
 	mark.textContent = subscribed ? UNSB_MARK : SUBS_MARK;
 	mark.title = subscribed ? UNSB_TITLE : SUBS_TITLE;
 	if (IS_BRAVE)
-		mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent('toggleSubscription', {detail:{tag: '" + tag + "'}}));");
+		mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent(\"toggleSubscription\", {\"detail\":{\"tag\": \"" + tag + "\"}}));");
 	else
-		mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent('toggleSubscription', {detail:{tag: '" + tag + "', sender: this}}));");
+		mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent(\"toggleSubscription\", {\"detail\":{\"tag\": \"" + tag + "\", \"sender\": this}}));");
 
 	return mark;
 }
@@ -322,6 +332,20 @@ function findTagButtonForBrave(tag){
 	if (VERBOSE_LOGGING)
 		console.log("findTagButton() call: \"" + SBTN_UID_PREFIX + tag + "\"");
 	return (document.getElementById(SBTN_UID_PREFIX + tag));
+}
+
+//**Referenced by popup.js:reloadNewCounterDictionary()
+function saveCounters(){
+	var counters = {};
+
+	var sidebar = document.getElementById("tag-sidebar").getElementsByTagName("li");
+	for (var i = 0; i < sidebar.length; ++i){
+		var counter = sidebar[i].getElementsByClassName("post-count")[0];
+		var tag = getTagFromLi(sidebar[i]);
+		counters[tag] = parseInt(counter.textContent);
+	}
+
+	save({"counterDictionary": JSON.stringify(counters)});
 }
 
 function errorCallback(){
@@ -366,4 +390,18 @@ function generateURL(page, q){
 //Retrieve publication id from preview node
 function getId(preview){
 	return parseInt(preview.id.substring(1), 10);
+}
+
+function getTagFromLi(li){
+	var tagLinks = li.getElementsByTagName("a");
+	for (var j = 0; j < tagLinks.length; ++j){
+		if (isTagAnchor(tagLinks[j])){
+			return tagLinks[j].textContent.trim();
+		}
+	}
+}
+
+//Detect if provided element is tag link
+function isTagAnchor(element){
+	return (element.hasAttribute("href") && element.href.includes("/post/search?tags=") && !element.hasAttribute("style"));
 }
