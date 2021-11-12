@@ -32,11 +32,13 @@
 	font-size: 20px;
 	font-weight: 400;
 }
+
 @media (max-width: 700px) {
 	#Header{
 		padding-left: 3%;
 	}
 }
+
 @media (max-width: 700px) {
 	#Belly{
 		margin-left: 0;
@@ -49,6 +51,7 @@ html {
 }
 body {
 	margin: 0;
+	min-width: 520px;
 }
 /*@media (max-aspect-ratio: 3840/2160) { <--Background image aspect ratio
 	body{
@@ -56,14 +59,12 @@ body {
 	}
 }*/
 
-a:link { color:#ddd; text-decoration: none; }
-a:visited { color:#ddd; text-decoration: none; }
-a:hover { color:#ddd; text-decoration: none; }
-a:active { color:#ddd; text-decoration: none; }
+a:link { color:#6cf; text-decoration: none; }
+a:visited { color:#6cf; text-decoration: none; }
+a:hover { color:#8000ff; text-decoration: none; }
+a:active { color:#6cf; text-decoration: none; }
 
 #watchedTags{
-	/*background: #6cf;*/
-	color: #6cf;
 	padding: 0;
 	list-style-type: none;
 	columns: 3;

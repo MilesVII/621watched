@@ -4,7 +4,7 @@ const SUBS_TITLE = "Subscribe to this tag";
 const UNSB_TITLE = "Unsubscribe from this tag";
 const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
 const IS_CHROME = true; // Reference to "chrome" instead of "browser"
-const IS_BRAVE = true; // Do not use 'this' in event details to refer to subscription button
+const IS_BRAVE = true; // Do not use 'this' in event details to refer to subscription button //Lock on true
 const TAG_PER_QUERY_LIMIT = 6;
 const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
@@ -18,10 +18,7 @@ var storedTags = [];
 document.head.addEventListener("toggleSubscription", toggleSubscription);
 document.head.addEventListener("viewWatched", viewWatched);
 
-if (IS_CHROME)
-	chrome.storage.local.get("subscriptions", loadedSubscriptions);
-else
-	browser.storage.local.get("subscriptions").then(loadedSubscriptions, errorCallback);
+load("subscriptions", loadedSubscriptions);
 
 function loadedSubscriptions(result){
 	if (result != null && result.hasOwnProperty("subscriptions")){
@@ -65,6 +62,7 @@ function toggleSubscription(event){
 			sender.title = SUBS_TITLE;
 			storedTags.splice(i, 1);
 			save({subscriptions: storedTags});
+			save({lastSeen: 0})
 			if (DEBUG_LOGGING)
 				console.log("Removed");
 		} else if (ERROR_LOGGING){
@@ -75,6 +73,7 @@ function toggleSubscription(event){
 		console.log(storedTags);
 }
 
+//**Referenced by popup.js:refresh()
 function linkify(){
 	//Linkify tags
 	linkifyTags(document.getElementById("tag-sidebar"));
@@ -95,12 +94,14 @@ function linkify(){
 //Watched Page processor
 
 var masterPreviews;
+var currentPage;
+//**Referenced by popup.js:refresh()
 //Event listener for Watched button (and paginator)
 function viewWatched(event){
 	var qurl = generateURL(event.detail.page, generateQueries()[0]);
 	save({watchTower: {url: qurl, page: event.detail.page}});
 	window.location.href = qurl;
-	//(storedTags.length > TAG_PER_QUERY_LIMIT)
+	//window.open(qurl, "_blank");
 }
 
 //Called every time page and storedTags loaded
@@ -108,23 +109,27 @@ function onPageLoad(){
 	load("watchTower", onPageLoadPartTwo);
 }
 function onPageLoadPartTwo(cumLoad){
-	if (cumLoad != null && window.location.href == cumLoad.watchTower.url){
-		//save({watchTower: "Undef URL"});
+	if (cumLoad != null && cumLoad.hasOwnProperty("watchTower") && window.location.href == cumLoad.watchTower.url){
+		masterPreviews = getPreviewList(document);
+		currentPage = cumLoad.watchTower.page;
 		if (storedTags.length > TAG_PER_QUERY_LIMIT){
-			getDirty(cumLoad.watchTower.page);
+			getDirty(currentPage);
+		} else {
+			doneSlaveProcessing();
 		}
 	}
 }
 
+var slaveRequestsPending = 0;
 //Called when tag query exceeds limit
 function getDirty(page){
-	masterPreviews = getPreviewList(document);
 	var queryQueue = generateQueries();
 	for (var i = 1; i < queryQueue.length; ++i){
 		var request = new XMLHttpRequest();
 		request.addEventListener("load", onSlavePageLoad);
 		request.open("GET", generateURL(page, queryQueue[i]));
 		request.send();
+		++slaveRequestsPending;
 	}
 	processPaginator();
 	overwriteSearchInput();
@@ -136,6 +141,7 @@ function onSlavePageLoad() {
 	if (this.status != 200){
 		if (ERROR_LOGGING)
 			console.log("Error occured while loading additional query: " + this.status);
+		tryDoneSlaveProcessing()
 		return;
 	}
 	var slave = new DOMParser().parseFromString(this.responseText, "text/html");
@@ -146,6 +152,7 @@ function onSlavePageLoad() {
 	if (previews == null){
 		if (ERROR_LOGGING)
 			console.log("Error occured while parsing slavePage");
+		tryDoneSlaveProcessing()
 		return;
 	}
 
@@ -160,6 +167,28 @@ function onSlavePageLoad() {
 
 	//Embed trendingtags
 	embedTrendingTags(slave.getElementById("tag-sidebar"));
+
+	tryDoneSlaveProcessing();	
+}
+
+function tryDoneSlaveProcessing(){
+	--slaveRequestsPending;
+	if (slaveRequestsPending == 0){
+		doneSlaveProcessing();
+	}
+}
+
+function doneSlaveProcessing(){
+	//embedTrendingTags(document.createTextNode("Done loading"));
+	
+	if (currentPage == 1){
+		for (var i = 0; i < masterPreviews.length; ++i){
+			if (masterPreviews[i].nodeType == 1){
+				save({lastSeen: getId(masterPreviews[i])});
+				break;
+			}
+		}
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -193,10 +222,6 @@ function tryEmbedPreview(slave, master, override){
 //Append list of trending tags from slave queries
 function embedTrendingTags(node){
 	linkifyTags(node);
-	/*var slaveTags = node.getElementsByTagName("li");
-	for (var i = 0; i < slaveTags.length; ++i){
-		document.getElementById("tag-sidebar").append(slaveTags[i]);
-	}*/
 	document.getElementById("tag-sidebar").parentNode.append(node);
 }
 
@@ -250,6 +275,7 @@ function linkifyTags(ul){
 }
 
 //Get list of preview nodes from page
+//**Referenced by popup.js:retrieveIdArrayFromPageContent()
 function getPreviewList(node){
 	var divContainer = node.getElementsByClassName("content-post")[0];
 
@@ -269,28 +295,6 @@ function parsePageId(url){
 	var startIndex = url.indexOf(signature) + signature.length;
 	var endIndex = url.indexOf("/", startIndex);
 	return parseInt(url.substring(startIndex, endIndex));
-}
-
-//Retrieve publication id from preview node
-function getId(preview){
-	return parseInt(preview.id.substring(1), 10);
-}
-
-//Generate URL for search query
-function generateURL(page, q){
-	return "https://e621.net/post/index/" + page + "/" + q;
-}
-
-//Generate array of search queries
-function generateQueries(){
-	var query = [""];
-	for (var i = 0; i < storedTags.length; ++i){
-		var ti = Math.floor(i / TAG_PER_QUERY_LIMIT);
-		if (ti >= query.length)
-			query[ti] = "";
-		query[ti] += encodeURIComponent("~" + storedTags[i].split(" ").join("_") + " ");
-	}
-	return query;
 }
 
 function generateWatchedEventCode(page){
@@ -325,6 +329,9 @@ function errorCallback(){
 		console.log("Error occured while loading from storage");
 }
 
+/////////////////////////////////////////////////////////////////////////////////////
+//Shared code
+
 function save(json){
 	if (IS_CHROME)
 		chrome.storage.local.set(json);
@@ -337,4 +344,26 @@ function load(key, callback){
 		chrome.storage.local.get(key, callback);
 	else
 		browser.storage.local.get(key).then(callback, errorCallback);
+}
+
+//Generate array of search queries
+function generateQueries(){
+	var query = [""];
+	for (var i = 0; i < storedTags.length; ++i){
+		var ti = Math.floor(i / TAG_PER_QUERY_LIMIT);
+		if (ti >= query.length)
+			query[ti] = "";
+		query[ti] += encodeURIComponent("~" + storedTags[i].split(" ").join("_") + " ");
+	}
+	return query;
+}
+
+//Generate URL for search query
+function generateURL(page, q){
+	return "https://e621.net/post/index/" + page + "/" + q;
+}
+
+//Retrieve publication id from preview node
+function getId(preview){
+	return parseInt(preview.id.substring(1), 10);
 }
