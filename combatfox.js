@@ -3,9 +3,10 @@ const UNSB_MARK = "XwX";
 const SUBS_TITLE = "Subscribe to this tag";
 const UNSB_TITLE = "Unsubscribe from this tag";
 const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
-const IS_CHROME = true;
+const IS_CHROME = true; // Reference to "chrome" instead of "browser"
 const IS_BRAVE = true; // Do not use 'this' in event details to refer to subscription button
 const TAG_PER_QUERY_LIMIT = 6;
+const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
 const MERGE_LOGGING = false;
 const ERROR_LOGGING = true;
@@ -35,13 +36,20 @@ function loadedSubscriptions(result){
 
 
 function toggleSubscription(event){
+	if (VERBOSE_LOGGING)
+		console.log("Received toggle event");
+
 	var tag = event.detail.tag;
 	if (IS_BRAVE)
 		var sender = findTagButtonForBrave(tag);
 	else
 		var sender = event.detail.sender;
+	if (VERBOSE_LOGGING)
+		console.log(sender);
 
 	if (!storedTags.includes(tag)){
+		if (VERBOSE_LOGGING)
+			console.log("Adding...");
 		sender.textContent = UNSB_MARK;
 		sender.title = UNSB_TITLE;
 		storedTags.push(tag);
@@ -51,12 +59,14 @@ function toggleSubscription(event){
 	} else {
 		var i = storedTags.indexOf(tag);
 		if (i > -1){
-			if (DEBUG_LOGGING)
-				console.log("Removed");
+			if (VERBOSE_LOGGING)
+				console.log("Removing...");
 			sender.textContent = SUBS_MARK;
 			sender.title = SUBS_TITLE;
 			storedTags.splice(i, 1);
 			save({subscriptions: storedTags});
+			if (DEBUG_LOGGING)
+				console.log("Removed");
 		} else if (ERROR_LOGGING){
 			console.log("E621E: Everything goes wrong");
 		}
@@ -98,7 +108,7 @@ function onPageLoad(){
 	load("watchTower", onPageLoadPartTwo);
 }
 function onPageLoadPartTwo(cumLoad){
-	if (window.location.href == cumLoad.watchTower.url){
+	if (cumLoad != null && window.location.href == cumLoad.watchTower.url){
 		//save({watchTower: "Undef URL"});
 		if (storedTags.length > TAG_PER_QUERY_LIMIT){
 			getDirty(cumLoad.watchTower.page);
@@ -209,6 +219,11 @@ function overwriteSearchInput(){
 /////////////////////////////////////////////////////////////////////////////////////
 //Utils
 
+//Detect if provided element is tag link
+function isTagAnchor(element){
+	return (element.hasAttribute("href") && element.href.includes("/post/search?tags=") && !element.hasAttribute("style"));
+}
+
 //Add subscription buttons to tag list
 function linkifyTags(ul){
 	if (ul){
@@ -218,7 +233,7 @@ function linkifyTags(ul){
 				var tagLinks = tagList[i].getElementsByTagName("a");
 				var tag = null;
 				for (var j = 0; j < tagLinks.length; ++j){
-					if (!tagLinks[j].hasAttribute("style")){
+					if (isTagAnchor(tagLinks[j])){
 						tag = tagLinks[j].textContent.trim();
 						break;
 					}
@@ -298,8 +313,10 @@ function generateSubscriptionButton(tag){
 	return mark;
 }
 
-//Brave is not able to refer to this as to element from callback
+//Brave is not able to refer to this as element from callback
 function findTagButtonForBrave(tag){
+	if (VERBOSE_LOGGING)
+		console.log("findTagButton() call: \"" + SBTN_UID_PREFIX + tag + "\"");
 	return (document.getElementById(SBTN_UID_PREFIX + tag));
 }
 
