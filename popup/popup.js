@@ -1,4 +1,4 @@
-const IS_CHROME = false;
+const IS_CHROME = true;
 
 var storedTags = [];
 

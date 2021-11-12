@@ -2,7 +2,9 @@ const SUBS_MARK = "OwO";
 const UNSB_MARK = "XwX";
 const SUBS_TITLE = "Subscribe to this tag";
 const UNSB_TITLE = "Unsubscribe from this tag";
-const IS_CHROME = false;
+const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
+const IS_CHROME = true;
+const IS_BRAVE = true; // Do not use 'this' in event details to refer to subscription button
 const TAG_PER_QUERY_LIMIT = 6;
 const DEBUG_LOGGING = false;
 const MERGE_LOGGING = false;
@@ -33,11 +35,13 @@ function loadedSubscriptions(result){
 
 
 function toggleSubscription(event){
-	var sender = event.detail.sender;
 	var tag = event.detail.tag;
+	if (IS_BRAVE)
+		var sender = findTagButtonForBrave(tag);
+	else
+		var sender = event.detail.sender;
 
 	if (!storedTags.includes(tag)){
-		// sender.style.backgroundColor = "#822828";
 		sender.textContent = UNSB_MARK;
 		sender.title = UNSB_TITLE;
 		storedTags.push(tag);
@@ -49,7 +53,6 @@ function toggleSubscription(event){
 		if (i > -1){
 			if (DEBUG_LOGGING)
 				console.log("Removed");
-			// sender.style.backgroundColor = "green";
 			sender.textContent = SUBS_MARK;
 			sender.title = SUBS_TITLE;
 			storedTags.splice(i, 1);
@@ -270,7 +273,7 @@ function generateQueries(){
 		var ti = Math.floor(i / TAG_PER_QUERY_LIMIT);
 		if (ti >= query.length)
 			query[ti] = "";
-		query[ti] += encodeURI("~" + storedTags[i].split(" ").join("_") + " ");
+		query[ti] += encodeURIComponent("~" + storedTags[i].split(" ").join("_") + " ");
 	}
 	return query;
 }
@@ -283,12 +286,21 @@ function generateSubscriptionButton(tag){
 	var subscribed = storedTags.includes(tag);
 	var mark = document.createElement("a");
 	mark.setAttribute("href", "javascript:void(0)");
-	mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent('toggleSubscription', {detail:{tag: '" + tag + "', sender: this}}));");
+	mark.setAttribute("id", SBTN_UID_PREFIX + tag);
 	mark.style.margin = "2px";
 	mark.textContent = subscribed ? UNSB_MARK : SUBS_MARK;
 	mark.title = subscribed ? UNSB_TITLE : SUBS_TITLE;
+	if (IS_BRAVE)
+		mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent('toggleSubscription', {detail:{tag: '" + tag + "'}}));");
+	else
+		mark.setAttribute("onclick", "document.head.dispatchEvent(new CustomEvent('toggleSubscription', {detail:{tag: '" + tag + "', sender: this}}));");
 
 	return mark;
+}
+
+//Brave is not able to refer to this as to element from callback
+function findTagButtonForBrave(tag){
+	return (document.getElementById(SBTN_UID_PREFIX + tag));
 }
 
 function errorCallback(){
