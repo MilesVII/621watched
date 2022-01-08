@@ -5,7 +5,7 @@ const UNSB_TITLE = "Unsubscribe from this tag";
 const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
 //const SBAI_UID = "sbai_uid";
 const WATCHED_MENUBUTTON_CAPTION = "Watched";
-const TAG_PER_QUERY_LIMIT = 40;
+const TAG_PER_QUERY_LIMIT = 1;//40;
 const VERBOSE_LOGGING = true;
 const DEBUG_LOGGING = true;
 const MERGE_LOGGING = true;
@@ -16,7 +16,7 @@ if (!browser) var browser = chrome;
 
 /////////////////////////////////////////////////////////////////////////////////////
 //Init
-document.head.addEventListener("toggleSubscription", toggleSubscription);
+//document.head.addEventListener("toggleSubscription", toggleSubscription);
 //document.head.addEventListener("viewWatched", viewWatched);
 main();
 
@@ -28,19 +28,17 @@ async function main(){
 	}
 
 	linkifyPage(storedTags);
-	console.log("linkify page done");
 
 	let cumLoad = await load("watchTower");
 	if (cumLoad && cumLoad.watchTower && window.location.href == cumLoad.watchTower.url){
 		//It is watched page
 		let currentPage = cumLoad.watchTower.page;
 
-		masterPreviews = getPreviewList(document);
+		let masterPreviews = getPreviews(document);
 		if (storedTags.length > TAG_PER_QUERY_LIMIT){
-			await getDirty(currentPage, storedTags);
+			await getDirty(currentPage, storedTags, masterPreviews);
 		}
 		
-		//doneSlaveProcessing();
 		if (currentPage == 1){
 			for (let i = 0; i < masterPreviews.length; ++i){
 				if (masterPreviews[i].nodeType == 1){
@@ -76,75 +74,84 @@ function generateURL(page, query){
 }
 
 //Called when tag query exceeds limit
-async function getDirty(page, storedTags){
+async function getDirty(page, storedTags, masterPreviews){
 	let queryQueue = generateQueries(storedTags);
-	// for (let i = 1; i < queryQueue.length; ++i){
-	// 	let request = new XMLHttpRequest();
-	// 	request.addEventListener("load", onSlavePageLoad);
-	// 	request.open("GET", );
-	// 	request.send();
-	// 	++slaveRequestsPending;
-	// }
 
 	let requests = [];
-	for (let query of queryQueue.slice(0)){
+	for (let query of queryQueue.slice(1)){
 		let url = generateURL(page, query)
 		requests.push(fetch(url));
+		console.log(queryQueue);
 	}
 	let responses = await Promise.all(requests);
 
-	const slave = document.implementation.createHTMLDocument();
-	slave.innerHTML = await responses[0].text();
-}
-
-function onSlavePageLoad() {
-	if (DEBUG_LOGGING)
-		console.log("Finished request to " + this.responseURL);
-	if (this.status != 200){
-		if (ERROR_LOGGING)
-			console.log("Error occured while loading additional query: " + this.status);
-		tryDoneSlaveProcessing();
-		return;
-	}
-	let slave = new DOMParser().parseFromString(this.responseText, "text/html");
-
-	//Embed pictures
-	let previews = getPreviewList(slave);
-
-	if (!previews){
-		if (ERROR_LOGGING)
-			console.log("Error occured while parsing slavePage");
-		tryDoneSlaveProcessing();
-		return;
+	let parsed = [];
+	for (let response of responses){
+		parsed.push(response.text());
 	}
 
-	while (previews.length > 0){
-		for (let masterPreview of masterPreviews){
-			//Removed node type validation because I discovered "children" property
-			let override = masterPreview == (masterPreviews[masterPreviews.length - 1]);
-			if (tryEmbedPreview(previews[0], masterPreview, override))
-				break;
+	let pages = await Promise.all(parsed);
+	console.log(pages);
+	for (let slavePageHTML of pages){
+		let slavePage = new DOMParser().parseFromString(slavePageHTML, "text/html");
+		let previews = getPreviews(slavePage);
+
+		while (previews.length > 0){
+			for (let masterPreview of masterPreviews){
+				let isLastMasterPreview = masterPreview == (masterPreviews[masterPreviews.length - 1]);
+				if (tryEmbedPreview(previews[0], masterPreview, isLastMasterPreview))
+					break;
+			}
+		}
+
+		//Embed trendingtags
+		let tagBox = getTagBox(slavePage);
+		if (tagBox){
+			embedTrendingTags(tagBox, storedTags);
 		}
 	}
-
-	//Embed trendingtags
-	embedTrendingTags(getUlFromTagbox(slave.getElementById("tag-box")));
-
-	tryDoneSlaveProcessing();	
 }
 
-function getPreviewList(node){
-	var container = node.getElementById("posts-container");
+function embedTrendingTags(slaveTagBox, storedTags){
+	linkifyTags(slaveTagBox, storedTags);
 
-	//Needed only for old e621
-	/*//Get child node with no id containing all previews
-	for (let i = 0; i < divContainer.childNodes.length; ++i){
-		if (divContainer.childNodes[i].nodeType == 1 && 
-		    !divContainer.childNodes[i].hasAttribute("id")){
-			return divContainer.childNodes[i].childNodes;
-		}
+	let tagBox = getTagBox(document);
+	if (slaveTagBox)
+		slaveTagBox = slaveTagBox.querySelector("ul");
+	if (tagBox)
+		tagBox.append(slaveTagBox);
+		// while (slaveTagBox.children.length > 0)
+}
+
+//Insert slave preview node into page near master node
+function tryEmbedPreview(slave, master, override){
+	let slaveId = getIdFromPreview(slave);
+	let masterId = getIdFromPreview(master);
+	
+	if (slaveId == masterId){
+		if (MERGE_LOGGING)
+			console.log("ignored:" + slaveId);
+		slave.parentNode.removeChild(slave);
+
+		return true;
+	} else if (slaveId > masterId){
+		if (MERGE_LOGGING)
+			console.log("insert:" + slaveId);
+		
+		master.parentNode.insertBefore(slave, master);
+		return true;
+	} else if (override){
+		if (MERGE_LOGGING)
+			console.log("end:" + slaveId);
+		
+		master.parentNode.append(slave);
+		return true;
 	}
-	return null;*/
+	return false;
+}
+
+function getPreviews(node){
+	let container = node.getElementById("posts-container");
 	return container.children;
 }
 
@@ -161,8 +168,7 @@ function generateSubscriptionButton(tag, storedTags){
 	mark.style.margin = "2px";
 	mark.textContent = subscribed ? UNSB_MARK : SUBS_MARK;
 	mark.title = subscribed ? UNSB_TITLE : SUBS_TITLE;
-	let wrapperFunction = e => {toggleSubscription(e, storedTags, tag);}
-	mark.addEventListener("click", wrapperFunction);
+	mark.addEventListener("click", e => toggleSubscription(e, storedTags, tag));
 	mark.dataset.tagName = tag;
 	//enforceAdoptingBySubscriptionButton(mark, tag);
 	return mark;
@@ -171,6 +177,8 @@ function generateSubscriptionButton(tag, storedTags){
 //Event listener for Watched button (and paginator)
 async function viewWatched(event, storedTags){
 	let mrSandman = event.srcElement || event.target;
+	let currentPage;
+
 	if (mrSandman.textContent === WATCHED_MENUBUTTON_CAPTION)
 		currentPage = 1;
 	else
@@ -193,9 +201,8 @@ function toggleSubscription(event, storedTags, tag){
 	let mrSandman = event.srcElement || event.target;
 
 	//CSP halts the execution if I try to call getElementByID
-	//var tag = mrSandman.lastChild.textContent;
-	//let tag = mrSandman.dataset.tagName;
-	//alert(tag)
+	//Both browsers are barking, but everything works
+	console.log(tag);
 
 	if (!storedTags.includes(tag)){
 		if (VERBOSE_LOGGING)
@@ -218,40 +225,33 @@ function toggleSubscription(event, storedTags, tag){
 			save({"lastSeen": 0});
 			if (DEBUG_LOGGING)
 				console.log("Removed");
-		} else if (ERROR_LOGGING){
-			console.log("E621E: Everything goes wrong");
 		}
 	}
 	if (DEBUG_LOGGING)
 		console.log(storedTags);
 }
 
-function linkifyPage(storedTags){
-	//Add subscription buttons to tag list
-	function linkifyTags(ul, storedTags){
-		if (ul){
-			let tagList = ul.getElementsByTagName("li");
-			for (let item of tagList){
-				let tag = item.querySelector(".search-tag");
+//Add subscription buttons to tag list
+function linkifyTags(tagBox, storedTags){
+	if (!tagBox){
+		return;
+	}
+	let tagList = tagBox.querySelectorAll("li");
+	for (let item of tagList){
+		let tag = item.querySelector(".search-tag");
 
-				if (!tag){
-					continue;
-				} else {
-					item.prepend(generateSubscriptionButton(tag, storedTags));
-				}
-			}
+		if (!tag){
+			continue;
+		} else {
+			item.prepend(generateSubscriptionButton(tag.textContent, storedTags));
 		}
 	}
-	
-	let tagBox = document.getElementById("tag-box");
-	if (!tagBox)
-		tagBox = document.getElementById("tag-list");
+}
+
+function linkifyPage(storedTags){
+	let tagBox = getTagBox(document);
 	if (tagBox){
-		console.log(tagBox.children);
-		for (let runner of tagBox.children){
-			if (runner.nodeName == "UL")
-				linkifyTags(runner, storedTags);
-		}
+		linkifyTags(tagBox, storedTags);
 	}
 
 	//Then linkify navbar
@@ -261,8 +261,7 @@ function linkifyPage(storedTags){
 	let poneWithFleshlight = document.createElement("a");
 	poneWithFleshlight.href = "javascript:void(0)";
 	poneWithFleshlight.id = "nav-watched";
-	let fuckEvents = (e) => {viewWatched(e, storedTags)};
-	poneWithFleshlight.addEventListener("click", fuckEvents);
+	poneWithFleshlight.addEventListener("click", e => viewWatched(e, storedTags));
 	poneWithFleshlight.textContent = WATCHED_MENUBUTTON_CAPTION;
 
 	watchTower.append(poneWithFleshlight);
@@ -272,20 +271,27 @@ function linkifyPage(storedTags){
 	overwriteSearchInput(storedTags);
 }
 
-function addSubscribtionButtons(storedTags){
-
+function getTagBox(root){
+	let tagBox = root.getElementById("tag-box");
+	if (!tagBox)
+		tagBox = root.getElementById("tag-list");
+	if (tagBox)
+		return tagBox;
 }
 
 //Add event dispatching to inform processor that page is changed
 function processPaginator(storedTags){
-	var pageLinks = document.getElementsByClassName("numbered-page");
+	let pageLinks = document.querySelectorAll(".numbered-page");
 
 	for (let pageLink of pageLinks)
 		for (let link of pageLink.querySelectorAll("a"))
 			if (link.href.includes("/posts?page=")){
-				let fuckEvents = (e) => {viewWatched(e, storedTags)};
-				link.addEventListener("click", fuckEvents);
+				link.addEventListener("click", e => viewWatched(e, storedTags));
 			}
+}
+
+function getIdFromPreview(preview){
+	return parseInt(preview.getAttribute("data-id"), 10);
 }
 
 //Replace text in search field with actual query
@@ -294,7 +300,7 @@ function overwriteSearchInput(storedTags){
 }
 
 async function save(json){
-	await api.storage.local.set(json);
+	await browser.storage.local.set(json);
 }
 
 async function load(key){
