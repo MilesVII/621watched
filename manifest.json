@@ -22,6 +22,6 @@
 
 	"content_scripts": [{
 		"matches": ["*://*.e621.net/*"],
-		"js": ["combatfox.js"]
+		"js": ["shared.js", "combatfox.js"]
 	}]
 }

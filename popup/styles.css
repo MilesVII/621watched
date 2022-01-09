@@ -64,12 +64,18 @@ a:visited { color:#6cf; text-decoration: none; }
 a:hover { color:#8000ff; text-decoration: none; }
 a:active { color:#6cf; text-decoration: none; }
 
-#watchedTags{
+#watchedTags {
 	padding: 0;
 	list-style-type: none;
 	columns: 3;
 	-webkit-columns: 3;
 	-moz-columns: 3;
+}
+
+.tagItem {
+	text-align: center;
+	background-color: rgba(150.0, 150.0, 255.0, 0.4);
+	border-radius: 3px;
 }
 
 input {

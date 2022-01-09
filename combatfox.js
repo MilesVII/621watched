@@ -3,27 +3,14 @@ const UNSB_MARK = "XwX";
 const SUBS_TITLE = "Subscribe to this tag";
 const UNSB_TITLE = "Unsubscribe from this tag";
 const SBTN_UID_PREFIX = "sbtn_uid_prefix_";
-//const SBAI_UID = "sbai_uid";
 const WATCHED_MENUBUTTON_CAPTION = "Watched";
-const TAG_PER_QUERY_LIMIT = 1;//40;
-const VERBOSE_LOGGING = true;
-const DEBUG_LOGGING = true;
-const MERGE_LOGGING = true;
-const ERROR_LOGGING = true;
-const IS_CHROME = !browser;
 
-if (!browser) var browser = chrome;
-
-/////////////////////////////////////////////////////////////////////////////////////
-//Init
-//document.head.addEventListener("toggleSubscription", toggleSubscription);
-//document.head.addEventListener("viewWatched", viewWatched);
 main();
 
 async function main(){
 	let storedTags = [];
 	let storedSubscriptions = await load("subscriptions");
-	if (storedSubscriptions && storedSubscriptions.hasOwnProperty("subscriptions")){
+	if (storedSubscriptions && storedSubscriptions.subscriptions){
 		storedTags = storedSubscriptions.subscriptions;
 	}
 
@@ -52,49 +39,27 @@ async function main(){
 	}
 }
 
-//Generate array of search queries
-function generateQueries(storedTags){
-	let queries = [];
-
-	for (let offset = 0; offset < storedTags.length; offset += TAG_PER_QUERY_LIMIT){
-		let batch = storedTags.slice(offset, offset + TAG_PER_QUERY_LIMIT);
-		// for (let tag of slice){
-		// 	query += encodeURIComponent("~" + tag.split(" ").join("_")) + "+";
-		// }
-		let query = batch.map(tag => encodeURIComponent("~" + tag.split(" ").join("_"))).join("+");
-
-		queries.push(query);
-	}
-
-	return queries;
-}
-
-function generateURL(page, query){
-	return "https://e621.net/posts?page=" + page + "&tags=" + query;
-}
-
 //Called when tag query exceeds limit
 async function getDirty(page, storedTags, masterPreviews){
 	let queryQueue = generateQueries(storedTags);
+	let urls = queryQueue.map(e => {return generateURL(page, e)});
 
-	let requests = [];
-	for (let query of queryQueue.slice(1)){
-		let url = generateURL(page, query)
-		requests.push(fetch(url));
-		console.log(queryQueue);
-	}
-	let responses = await Promise.all(requests);
+	// let requests = [];
+	// for (let query of queryQueue.slice(1)){
+	// 	let url = generateURL(page, query)
+	// 	requests.push(fetch(url));
+	// }
+	// let responses = await Promise.all(requests);
 
-	let parsed = [];
-	for (let response of responses){
-		parsed.push(response.text());
-	}
+	// let parsed = [];
+	// for (let response of responses){
+	// 	parsed.push(response.text());
+	// }
 
-	let pages = await Promise.all(parsed);
-	console.log(pages);
-	for (let slavePageHTML of pages){
-		let slavePage = new DOMParser().parseFromString(slavePageHTML, "text/html");
-		let previews = getPreviews(slavePage);
+	let pages = await loadPages(urls); //await Promise.all(parsed);
+	for (let page of pages){
+		//let slavePage = new DOMParser().parseFromString(slavePageHTML, "text/html");
+		let previews = getPreviews(page);
 
 		while (previews.length > 0){
 			for (let masterPreview of masterPreviews){
@@ -105,7 +70,7 @@ async function getDirty(page, storedTags, masterPreviews){
 		}
 
 		//Embed trendingtags
-		let tagBox = getTagBox(slavePage);
+		let tagBox = getTagBox(page);
 		if (tagBox){
 			embedTrendingTags(tagBox, storedTags);
 		}
@@ -153,10 +118,6 @@ function tryEmbedPreview(slave, master, override){
 function getPreviews(node){
 	let container = node.getElementById("posts-container");
 	return container.children;
-}
-
-function getPostId(preview){
-	return parseInt(preview.dataset.id, 10);
 }
 
 function generateSubscriptionButton(tag, storedTags){
@@ -297,18 +258,4 @@ function getIdFromPreview(preview){
 //Replace text in search field with actual query
 function overwriteSearchInput(storedTags){
 	document.getElementById("tags").value = decodeURIComponent(generateQueries(storedTags).join("").split("+").join(" "));
-}
-
-async function save(json){
-	await browser.storage.local.set(json);
-}
-
-async function load(key){
-	if (IS_CHROME){
-		return await new Promise(resolve => {
-			chrome.storage.local.get(key, r => {resolve(r)});
-		});
-	} else {
-		return await browser.storage.local.get(key);
-	}
 }
