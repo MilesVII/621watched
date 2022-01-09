@@ -9,14 +9,27 @@ if (!browser) var browser = chrome;
 
 async function loadPages(urls){
 	let requests = [];
+	let failed = false;
+	
+	//can't use Promise.allSettled due to poor support by chr*vomits*me
 	for (let url of urls){
-		requests.push(fetch(url));
+		let promise = new Promise(resolve => {
+			fetch(url)
+				.then(response => resolve(response))
+				.catch(e => {
+					failed = true;
+					resolve(null);
+				});
+		});
+		requests.push(promise);
 	}
 	let responses = await Promise.all(requests);
+	if (failed) return [];
 
 	let parsed = [];
 	for (let response of responses){
-		parsed.push(response.text());
+		if (response)
+			parsed.push(response.text());
 	}
 
 	let pages = await Promise.all(parsed);

@@ -79,7 +79,7 @@ async function checkForNewImages(lastSeen, storedTags){
 	let queryQueue = generateQueries(storedTags);
 	let urls = queryQueue.map(e => generateURL(1, e));
 	let pages = await loadPages(urls);
-
+	
 	// for (let i = 0; i < queryQueue.length; ++i){
 	// 	let request = new XMLHttpRequest();
 	// 	request.addEventListener("load", onSlavePageLoad);
@@ -94,7 +94,6 @@ async function checkForNewImages(lastSeen, storedTags){
 		if (ERROR_LOGGING)
 			console.log("Error occured while loading search queries");
 		failedToLoad = true;
-		return;
 	} else {
 		for (let page of pages){
 			//let slave = new DOMParser().parseFromString(page, "text/html");
