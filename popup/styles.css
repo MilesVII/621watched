@@ -75,14 +75,80 @@ a:active { color:#6cf; text-decoration: none; }
 .tagItem {
 	text-align: center;
 	background-color: rgba(150.0, 150.0, 255.0, 0.4);
+	margin-bottom: 4px;	
 	border-radius: 3px;
 }
 
-input {
+/*input {
 	background: none!important;
 	color: #6cf;
 	border: none; 
 	padding: 0!important;
 	font: inherit;
 	cursor: pointer;
+}*/
+
+#customQueries {
+	width: 100%;
+	display: table;
+}
+
+#customQueriesInput, .customQueryItem {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+	display: table-cell;
+	width: 100%;
+	margin: 0;
+	border: 0;
+	border-radius: 3px 0 0 3px;
+	padding-left: 7px;
+	font-family: 'Roboto', 'Calibri';
+	font-size: 20px;
+	font-weight: 400;
+}
+
+.customQueryItem {
+	background-color: rgba(150.0, 150.0, 255.0, 0.4);
+	margin-bottom: 4px;
+	/*
+	display: table-cell;
+	width: 100%;
+	margin: 0;
+	border: 0;
+	padding-left: 7px;
+	font-family: 'Roboto', 'Calibri';
+	font-size: 20px;
+	font-weight: 400;*/
+}
+
+.sidebutton {
+	display: table-cell;
+	text-align: center;
+	border-radius: 0 3px 3px 0;
+	width: 32px;
+	cursor: pointer;
+	min-width: 32px;
+	aspect-ratio: 1 / 1;
+	/*width: 32px;*/
+}
+
+.close {
+	background-color: rgb(240, 120, 120);
+}
+.close:hover {
+	background-color: rgb(240, 170, 170);
+}
+.close:active {
+	background-color: rgb(240, 70, 70);
+}
+
+#customQueryAdderButton {
+	background-color: rgb(120, 240, 200);
+}
+#customQueryAdderButton:hover {
+	background-color: rgb(170, 240, 200);
+}
+#customQueryAdderButton:active {
+	background-color: rgb(70, 240, 140);
 }

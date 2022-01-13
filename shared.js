@@ -11,10 +11,10 @@ async function loadPages(urls){
 	let requests = [];
 	let failed = false;
 	
-	//can't use Promise.allSettled due to poor support by chr*vomits*me
+	//can't use Promise.allSettled due to poor support by older browsers
 	for (let url of urls){
 		let promise = new Promise(resolve => {
-			fetch(url)
+			fetch(url, {redirect: "error"})
 				.then(response => resolve(response))
 				.catch(e => {
 					failed = true;
@@ -69,11 +69,16 @@ async function save(json){
 }
 
 async function load(key){
+	let stored;
 	if (IS_CHROME){
-		return await new Promise(resolve => {
+		stored = await new Promise(resolve => {
 			chrome.storage.local.get(key, r => {resolve(r)});
 		});
 	} else {
-		return await browser.storage.local.get(key);
+		stored = await browser.storage.local.get(key);
 	}
+	if (stored && stored[key])
+		return stored[key];
+	else
+		return null;
 }

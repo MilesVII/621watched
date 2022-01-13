@@ -10,16 +10,16 @@ main();
 async function main(){
 	let storedTags = [];
 	let storedSubscriptions = await load("subscriptions");
-	if (storedSubscriptions && storedSubscriptions.subscriptions){
-		storedTags = storedSubscriptions.subscriptions;
+	if (storedSubscriptions){
+		storedTags = storedSubscriptions;
 	}
 
 	linkifyPage(storedTags);
 
 	let cumLoad = await load("watchTower");
-	if (cumLoad && cumLoad.watchTower && window.location.href == cumLoad.watchTower.url){
+	if (cumLoad && window.location.href == cumLoad.url){
 		//It is watched page
-		let currentPage = cumLoad.watchTower.page;
+		let currentPage = cumLoad.page;
 
 		let masterPreviews = getPreviews(document);
 		if (storedTags.length > TAG_PER_QUERY_LIMIT){

@@ -2,14 +2,21 @@ main();
 
 async function main(){
 	let storedTags = [];
+	let storedQueries = [];
 	let storedSubscriptions = await load("subscriptions");
-	if (storedSubscriptions && storedSubscriptions.subscriptions){
-		storedTags = storedSubscriptions.subscriptions;
-		refresh(storedTags);
+	let storedCustomSubscriptions = await load("customQueries");
+	if (storedCustomSubscriptions && 
+		Array.isArray(storedCustomSubscriptions)){
+		storedQueries = storedCustomSubscriptions;
+	}
+
+	if (storedSubscriptions){
+		storedTags = storedSubscriptions;
+		refresh(storedTags, storedQueries);
 		let lastSeen = await load("lastSeen");
 
-		if (lastSeen && lastSeen.lastSeen){
-			checkForNewImages(lastSeen.lastSeen, storedTags);
+		if (lastSeen){
+			checkForNewImages(lastSeen, storedTags);
 		} else {
 			setCheckingStatus("Last seen post is unknown, please view watched tags manually");
 			return;
@@ -19,10 +26,11 @@ async function main(){
 	document.getElementById("import_button").addEventListener("click", importTagsFromBackup);
 	document.getElementById("backupshow_button").addEventListener("click", showBackupOptions);
 	document.getElementById("copy_button").addEventListener("click", e => copyTags(storedTags));
+	document.getElementById("customQueryAdderButton").addEventListener("click", addCustomQuery);
 	loadTagsToBackupText(storedTags);
 }
 
-async function refresh(storedTags){
+async function refresh(storedTags, storedQueries){
 	//Update list of tags
 	let ul = document.getElementById("watchedTags");
 	while (ul.lastChild) {
@@ -30,6 +38,9 @@ async function refresh(storedTags){
 	}
 	for (let tag of storedTags){
 		ul.appendChild(generateTagItem(tag));
+	}
+	for (let query of storedQueries){
+		createCustomQueryItem(query);
 	}
 
 	//Generate link for Watched button and reset watchTower
@@ -167,4 +178,60 @@ function copyTags(storedTags){
 
 function loadTagsToBackupText(storedTags){
 	document.getElementById("backupText").value = storedTags.join("\n");
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+//Custom queries
+function createCustomQueryItem(value){
+	let container = document.createElement("div");
+	container.style.display = "block";
+	container.style.marginBottom = "4px";
+
+	let newItem = document.createElement("div");
+	newItem.className = "customQueryItem";
+	newItem.textContent = value;
+
+	let closeButton = document.createElement("div");
+	closeButton.className = "sidebutton close";
+	closeButton.textContent = "X";
+	closeButton.addEventListener("click", async () => {
+		let storedQueries = await load("customQueries");
+		if (storedQueries){
+			let i = storedQueries.indexOf(value);
+			if (i >= 0){
+				storedQueries.splice(i, 1);
+				await save({
+					customQueries: storedQueries
+				});
+				console.log(storedQueries);
+				container.remove();
+			}
+		}
+	});
+
+
+	container.appendChild(newItem);
+	container.appendChild(closeButton);
+
+	document.getElementById("customQueryList").appendChild(container);
+}
+
+async function addCustomQuery(){
+	let input = document.getElementById("customQueriesInput");
+	let v = input.value.trim();
+	if (v.length == 0) return;
+
+	let storedQueries = await load("customQueries");
+
+	if (!storedQueries || !Array.isArray(storedQueries)){
+		storedQueries = [];
+	}
+	storedQueries.push(v);
+	await save({
+		customQueries: storedQueries
+	})
+
+	createCustomQueryItem(v);
+
+	input.value = "";
 }
