@@ -9,9 +9,14 @@ main();
 
 async function main(){
 	let storedTags = [];
-	let storedSubscriptions = await load("subscriptions");
-	if (storedSubscriptions){
-		storedTags = storedSubscriptions;
+	let tagsStorage = await load("subscriptions");
+	if (tagsStorage){
+		storedTags = tagsStorage;
+	}
+	let storedQueries = [];
+	let queryStorage = await load("customQueries");
+	if (queryStorage){
+		storedQueries = queryStorage;
 	}
 
 	linkifyPage(storedTags);
@@ -22,43 +27,53 @@ async function main(){
 		let currentPage = cumLoad.page;
 
 		let masterPreviews = getPreviews(document);
-		if (storedTags.length > TAG_PER_QUERY_LIMIT){
-			await getDirty(currentPage, storedTags, masterPreviews);
+		if (storedTags.length > TAG_PER_QUERY_LIMIT || storedQueries.length > 0){
+			await getDirty(currentPage, storedTags, storedQueries, masterPreviews);
 		}
 		
 		if (currentPage == 1){
-			for (let i = 0; i < masterPreviews.length; ++i){
-				if (masterPreviews[i].nodeType == 1){
-					save({
-						"lastSeen": getPostId(masterPreviews[i])
-					});
-					break;
-				}
+			for (let preview of masterPreviews){
+				if (preview.tagName != "ARTICLE") continue;
+
+				await save({
+					"lastSeen": getPostId(preview)
+				});
+				break;
 			}
 		}
 	}
 }
 
+function createProgressbar(max){
+	let bar = document.createElement("progress");
+	bar.style.width = "100%";
+	bar.max = max;
+	return {
+		element: bar,
+		set: v => bar.value = v
+	}
+}
 //Called when tag query exceeds limit
-async function getDirty(page, storedTags, masterPreviews){
-	let queryQueue = generateQueries(storedTags);
-	let urls = queryQueue.map(e => {return generateURL(page, e)});
+async function getDirty(page, storedTags, storedQueries, masterPreviews){
+	let queryQueue = generateQueries(storedTags).slice(1);
+	let urls = queryQueue.map(e => generateURL(page, e));
 
-	// let requests = [];
-	// for (let query of queryQueue.slice(1)){
-	// 	let url = generateURL(page, query)
-	// 	requests.push(fetch(url));
-	// }
-	// let responses = await Promise.all(requests);
+	if (storedQueries && storedQueries.length > 0){
+		let additionalURLs = storedQueries.map(query => {
+			return generateURL(page, encodeSearchQuery(query));
+		});
+		urls = urls.concat(additionalURLs);
+	}
 
-	// let parsed = [];
-	// for (let response of responses){
-	// 	parsed.push(response.text());
-	// }
+	let progressbarCallback = null;
+	if (urls.length > 1){
+		let bar = createProgressbar(urls.length);
+		progressbarCallback = counter => bar.set(counter);
+		document.getElementById("nav").appendChild(bar.element);
+	}
 
-	let pages = await loadPages(urls); //await Promise.all(parsed);
+	let pages = await loadPages(urls, progressbarCallback); 
 	for (let page of pages){
-		//let slavePage = new DOMParser().parseFromString(slavePageHTML, "text/html");
 		let previews = getPreviews(page);
 
 		while (previews.length > 0){
@@ -163,7 +178,6 @@ function toggleSubscription(event, storedTags, tag){
 
 	//CSP halts the execution if I try to call getElementByID
 	//Both browsers are barking, but everything works
-	console.log(tag);
 
 	if (!storedTags.includes(tag)){
 		if (VERBOSE_LOGGING)
@@ -183,7 +197,7 @@ function toggleSubscription(event, storedTags, tag){
 			mrSandman.title = SUBS_TITLE;
 			storedTags.splice(i, 1);
 			save({"subscriptions": storedTags});
-			save({"lastSeen": 0});
+			//save({"lastSeen": 0});
 			if (DEBUG_LOGGING)
 				console.log("Removed");
 		}

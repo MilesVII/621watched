@@ -1,24 +1,32 @@
 const TAG_PER_QUERY_LIMIT = 40;
-const VERBOSE_LOGGING = true;
-const DEBUG_LOGGING = true;
-const MERGE_LOGGING = true;
-const ERROR_LOGGING = true;
+const VERBOSE_LOGGING = false;
+const DEBUG_LOGGING = false;
+const MERGE_LOGGING = false;
+const ERROR_LOGGING = false;
 const IS_CHROME = !browser;
 
 if (!browser) var browser = chrome;
 
-async function loadPages(urls){
+async function loadPages(urls, pageLoadedCallback = null){
 	let requests = [];
 	let failed = false;
 	
-	//can't use Promise.allSettled due to poor support by older browsers
+	let loadedPages = 0;
 	for (let url of urls){
 		let promise = new Promise(resolve => {
 			fetch(url, {redirect: "error"})
-				.then(response => resolve(response))
-				.catch(e => {
+				//can't use Promise.allSettled due to poor support by older browsers
+				.then(response => {
+					loadedPages += 1;
+					resolve(response);
+					if (pageLoadedCallback)
+						pageLoadedCallback(loadedPages);
+				}).catch(e => {
+					loadedPages += 1;
 					failed = true;
 					resolve(null);
+					if (pageLoadedCallback)
+						pageLoadedCallback(loadedPages);
 				});
 		});
 		requests.push(promise);
@@ -54,6 +62,10 @@ function generateQueries(storedTags){
 	}
 
 	return queries;
+}
+
+function encodeSearchQuery(query){
+	return encodeURIComponent(query);
 }
 
 function generateURL(page, query){

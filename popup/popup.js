@@ -2,24 +2,24 @@ main();
 
 async function main(){
 	let storedTags = [];
+	let tagsStorage = await load("subscriptions");
+	if (tagsStorage){
+		storedTags = tagsStorage;
+	}
 	let storedQueries = [];
-	let storedSubscriptions = await load("subscriptions");
-	let storedCustomSubscriptions = await load("customQueries");
-	if (storedCustomSubscriptions && 
-		Array.isArray(storedCustomSubscriptions)){
-		storedQueries = storedCustomSubscriptions;
+	let queryStorage = await load("customQueries");
+	if (queryStorage && Array.isArray(queryStorage)){
+		storedQueries = queryStorage;
 	}
 
-	if (storedSubscriptions){
-		storedTags = storedSubscriptions;
+	if (storedTags.length + storedQueries.length > 0){
 		refresh(storedTags, storedQueries);
 		let lastSeen = await load("lastSeen");
 
 		if (lastSeen){
-			checkForNewImages(lastSeen, storedTags);
+			checkForNewImages(lastSeen, storedTags, storedQueries);
 		} else {
 			setCheckingStatus("Last seen post is unknown, please view watched tags manually");
-			return;
 		}
 	}
 
@@ -30,7 +30,7 @@ async function main(){
 	loadTagsToBackupText(storedTags);
 }
 
-async function refresh(storedTags, storedQueries){
+async function refresh(storedTags, storedQueries, skipQueries = false){
 	//Update list of tags
 	let ul = document.getElementById("watchedTags");
 	while (ul.lastChild) {
@@ -39,10 +39,12 @@ async function refresh(storedTags, storedQueries){
 	for (let tag of storedTags){
 		ul.appendChild(generateTagItem(tag));
 	}
-	for (let query of storedQueries){
-		createCustomQueryItem(query);
-	}
+	if (!skipQueries)
+		for (let query of storedQueries){
+			createCustomQueryItem(query);
+		}
 
+	let subscriptionsLength = storedTags.length + storedQueries.length;
 	//Generate link for Watched button and reset watchTower
 	let watchedButton = document.getElementById("viewWatched");
 	let qurl = generateURL(1, generateQueries(storedTags)[0]);
@@ -54,10 +56,10 @@ async function refresh(storedTags, storedQueries){
 	});
 	watchedButton.href = qurl;
 	watchedButton.target = "_blank";
-	watchedButton.style.display = storedTags.length == 0 ? "none" : "block";
+	watchedButton.style.display = subscriptionsLength == 0 ? "none" : "block";
 	watchedButton.textContent = "View watched";
 
-	document.getElementById("nuffin").style.display = storedTags.length == 0 ? "block" : "none";
+	document.getElementById("nuffin").style.display = subscriptionsLength == 0 ? "block" : "none";
 }
 
 function generateTagItem(tag){
@@ -81,15 +83,26 @@ function setCheckingStatus(status){
 	document.getElementById("newImages").textContent = status;
 }
 
-async function checkForNewImages(lastSeen, storedTags){
-	if (storedTags.length == 0)
+async function checkForNewImages(lastSeen, storedTags, storedQueries){
+	if ((storedTags.length + storedQueries.length) == 0)
 		return;
 	
-	setCheckingStatus("Checking for new images...")
+	setCheckingStatus("Checking for new images...");
 
 	let queryQueue = generateQueries(storedTags);
 	let urls = queryQueue.map(e => generateURL(1, e));
-	let pages = await loadPages(urls);
+	
+	if (storedQueries && storedQueries.length > 0){
+		let additionalURLs = storedQueries.map(query => {
+			return generateURL(1, encodeSearchQuery(query));
+		});
+		urls = urls.concat(additionalURLs);
+	}
+
+	console.log(urls);
+	let pages = await loadPages(urls, counter => {
+		setCheckingStatus("Checking for new images... (" + counter + "/" + urls.length + ")");
+	});
 	
 	// for (let i = 0; i < queryQueue.length; ++i){
 	// 	let request = new XMLHttpRequest();
@@ -230,6 +243,13 @@ async function addCustomQuery(){
 	await save({
 		customQueries: storedQueries
 	})
+
+	let storedTags = [];
+	let tagsStorage = await load("subscriptions");
+	if (tagsStorage){
+		storedTags = tagsStorage;
+	}
+	refresh(storedTags, storedQueries, true);
 
 	createCustomQueryItem(v);
 
