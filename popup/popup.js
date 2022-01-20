@@ -149,16 +149,6 @@ async function checkForNewImages(lastSeen, storedTags, storedQueries){
 function countUnseenPosts(slavePage, lastSeen){
 	let previews = slavePage.getElementById("posts-container").children;
 
-	// let counter = 0;
-	// for (let preview of previews){
-	// 	let id = getPostId(preview);
-	// 	if (id > lastSeen)
-	// 		counter += 1;
-	// 	else
-	// 		break;
-	// }
-	// return counter;
-
 	let newPreviews = Array.from(previews).filter(preview => getPostId(preview) > lastSeen);
 	return {
 		count: newPreviews.length,

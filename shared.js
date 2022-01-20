@@ -14,8 +14,10 @@ async function loadPages(urls, pageLoadedCallback = null){
 	let loadedPages = 0;
 	for (let url of urls){
 		let promise = new Promise(resolve => {
-			fetch(url, {redirect: "error"})
-				//can't use Promise.allSettled due to poor support by older browsers
+			fetch(url, {
+				credentials: "include", 
+				redirect: "error"
+			})//can't use Promise.allSettled due to poor support by older browsers
 				.then(response => {
 					loadedPages += 1;
 					resolve(response);
@@ -45,6 +47,28 @@ async function loadPages(urls, pageLoadedCallback = null){
 	let doms = pages.map(page => new DOMParser().parseFromString(page, "text/html"));
 
 	return doms;
+}
+
+function censor(page){
+	let blacklistRaw = Array.from(page.querySelectorAll("meta")).find(e => e.name == "blacklisted-tags").content;
+	let blacklist = blacklistRaw.slice(1, -1).split(",").map(t => t.slice(1, -1));
+	let previews = getPreviews(page);
+	for (let preview of previews){
+		let tags = preview.dataset.tags.split(" ");
+		for (let blackTag of blacklist)
+			if (tags.includes(blackTag)){
+				console.log("blacktagged " + preview.dataset.id + " by " + blackTag);
+				//console.log(preview);
+				preview.style.display = "none";
+				continue;
+			}
+	}
+	return page;
+}
+
+function getPreviews(node){
+	let container = node.getElementById("posts-container");
+	return container.children;
 }
 
 //Generate array of search queries

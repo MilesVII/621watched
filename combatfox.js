@@ -41,6 +41,7 @@ async function main(){
 				break;
 			}
 		}
+		overwriteSearchInput(storedTags);
 	}
 }
 
@@ -72,7 +73,9 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 		document.getElementById("nav").appendChild(bar.element);
 	}
 
-	let pages = await loadPages(urls, progressbarCallback); 
+	let pages = await loadPages(urls, progressbarCallback);
+	pages = pages.map(page => censor(page));
+
 	for (let page of pages){
 		let previews = getPreviews(page);
 
@@ -128,11 +131,6 @@ function tryEmbedPreview(slave, master, override){
 		return true;
 	}
 	return false;
-}
-
-function getPreviews(node){
-	let container = node.getElementById("posts-container");
-	return container.children;
 }
 
 function generateSubscriptionButton(tag, storedTags){
@@ -243,7 +241,6 @@ function linkifyPage(storedTags){
 	ul.children[0].after(watchTower);
 
 	processPaginator(storedTags);
-	overwriteSearchInput(storedTags);
 }
 
 function getTagBox(root){
