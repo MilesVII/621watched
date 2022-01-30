@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "e621 Subscriptions",
-	"version": "2.0.2",
+	"version": "2.0.3",
 
 	"description": "Adds Watched/Subscribe feature to e621.net",
 
