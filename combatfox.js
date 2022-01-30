@@ -41,7 +41,8 @@ async function main(){
 				break;
 			}
 		}
-		overwriteSearchInput(storedTags);
+		//overwriteSearchInput(storedTags);
+		processPaginator(storedTags);
 	}
 }
 
@@ -149,20 +150,12 @@ function generateSubscriptionButton(tag, storedTags){
 }
 
 //Event listener for Watched button (and paginator)
-async function viewWatched(event, storedTags){
-	let mrSandman = event.srcElement || event.target;
-	let currentPage;
-
-	if (mrSandman.textContent === WATCHED_MENUBUTTON_CAPTION)
-		currentPage = 1;
-	else
-		currentPage = parseInt(mrSandman.textContent);
-
-	let qurl = generateURL(currentPage, generateQueries(storedTags)[0]);
+async function viewWatched(event, storedTags, page){
+	let qurl = generateURL(page, generateQueries(storedTags)[0]);
 	await save({
 		"watchTower": {
 			"url": qurl, 
-			"page": currentPage
+			"page": page
 		}
 	});
 	window.location.href = qurl;
@@ -234,13 +227,11 @@ function linkifyPage(storedTags){
 	let poneWithFleshlight = document.createElement("a");
 	poneWithFleshlight.href = "javascript:void(0)";
 	poneWithFleshlight.id = "nav-watched";
-	poneWithFleshlight.addEventListener("click", e => viewWatched(e, storedTags));
+	poneWithFleshlight.addEventListener("click", e => viewWatched(e, storedTags, 1));
 	poneWithFleshlight.textContent = WATCHED_MENUBUTTON_CAPTION;
 
 	watchTower.append(poneWithFleshlight);
 	ul.children[0].after(watchTower);
-
-	processPaginator(storedTags);
 }
 
 function getTagBox(root){
@@ -258,7 +249,8 @@ function processPaginator(storedTags){
 	for (let pageLink of pageLinks)
 		for (let link of pageLink.querySelectorAll("a"))
 			if (link.href.includes("/posts?page=")){
-				link.addEventListener("click", e => viewWatched(e, storedTags));
+				let page = parseInt(link.textContent, 10);
+				link.addEventListener("click", e => viewWatched(e, storedTags, page));
 			}
 }
 

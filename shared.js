@@ -1,4 +1,4 @@
-const TAG_PER_QUERY_LIMIT = 40;
+const TAG_PER_QUERY_LIMIT = 1;
 const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
 const MERGE_LOGGING = false;
@@ -15,7 +15,6 @@ async function loadPages(urls, pageLoadedCallback = null){
 	for (let url of urls){
 		let promise = new Promise(resolve => {
 			fetch(url, {
-				credentials: "include", 
 				redirect: "error"
 			})//can't use Promise.allSettled due to poor support by older browsers
 				.then(response => {
