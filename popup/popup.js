@@ -1,16 +1,14 @@
 main();
 
 async function main(){
-	let storedTags = [];
-	let tagsStorage = await load("subscriptions");
-	if (tagsStorage){
-		storedTags = tagsStorage;
-	}
-	let storedQueries = [];
-	let queryStorage = await load("customQueries");
-	if (queryStorage && Array.isArray(queryStorage)){
-		storedQueries = queryStorage;
-	}
+	const storage = await Promise.all([
+		load("subscriptions"),
+		load("customQueries"),
+		load("hideSubsButton")
+	]);
+
+	let storedTags = storage[0] || [];
+	let storedQueries = storage[1] || [];
 
 	if (storedTags.length + storedQueries.length > 0){
 		refresh(storedTags, storedQueries);
@@ -27,6 +25,10 @@ async function main(){
 	document.getElementById("backupshow_button").addEventListener("click", showBackupOptions);
 	document.getElementById("copy_button").addEventListener("click", e => copyTags(storedTags));
 	document.getElementById("customQueryAdderButton").addEventListener("click", addCustomQuery);
+	document.getElementById("hideSubuscriptionButton").addEventListener("change", toggleSubsButton);
+	document.getElementById("hideSubuscriptionButton").checked = Boolean(storage[2]);
+	console.log(storage[2]);
+	document.getElementById("permalink").href = WATCHED_URL;
 	loadTagsToBackupText(storedTags);
 }
 
@@ -55,7 +57,6 @@ async function refresh(storedTags, storedQueries, skipQueries = false){
 		}
 	});
 	watchedButton.href = qurl;
-	watchedButton.target = "_blank";
 	watchedButton.style.display = subscriptionsLength == 0 ? "none" : "block";
 	watchedButton.textContent = "View watched";
 
@@ -181,6 +182,15 @@ function copyTags(storedTags){
 
 function loadTagsToBackupText(storedTags){
 	document.getElementById("backupText").value = storedTags.join("\n");
+}
+
+function toggleSubsButton(){
+	let checkbox = document.getElementById("hideSubuscriptionButton");
+	checkbox.checked;
+	
+	save({
+		"hideSubsButton": checkbox.checked
+	});
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

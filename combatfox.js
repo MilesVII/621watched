@@ -8,21 +8,37 @@ const WATCHED_MENUBUTTON_CAPTION = "Watched";
 main();
 
 async function main(){
-	let storedTags = [];
-	let tagsStorage = await load("subscriptions");
-	if (tagsStorage){
-		storedTags = tagsStorage;
-	}
-	let storedQueries = [];
-	let queryStorage = await load("customQueries");
-	if (queryStorage){
-		storedQueries = queryStorage;
+
+	const storage = await Promise.all([
+		load("subscriptions"),
+		load("customQueries"),
+		load("hideSubsButton"),
+		load("watchTower")
+	]);
+
+	let storedTags = storage[0] || [];
+	let storedQueries = storage[1] || [];
+	let hideSubuscriptionButtons = Boolean(storage[2]);
+
+	let cumLoad = storage[3];
+	if (window.location.href.endsWith(WATCHED_URL_FLAG)){
+		console.log("redirect triggered");
+		let page = cumLoad ? cumLoad.page : 1;
+		let qurl = generateURL(page, generateQueries(storedTags)[0]);
+		await save({
+			"watchTower": {
+				"url": qurl, 
+				"page": page
+			}
+		});
+		console.log(qurl);
+		window.location.replace(qurl);
+		return;
 	}
 
-	linkifyPage(storedTags);
+	linkifyPage(storedTags, hideSubuscriptionButtons);
 
-	let cumLoad = await load("watchTower");
-	if (cumLoad && window.location.href == cumLoad.url){
+	if (cumLoad && decodeURIComponent(window.location.href) == decodeURIComponent(cumLoad.url)){
 		//It is watched page
 		let currentPage = cumLoad.page;
 
@@ -35,9 +51,11 @@ async function main(){
 			for (let preview of masterPreviews){
 				if (preview.tagName != "ARTICLE") continue;
 
+				console.log("saving last seen")
 				await save({
 					"lastSeen": getPostId(preview)
 				});
+				console.log("done")
 				break;
 			}
 		}
@@ -214,15 +232,23 @@ function linkifyTags(tagBox, storedTags){
 	}
 }
 
-function linkifyPage(storedTags){
+function linkifyPage(storedTags, hideSubuscriptionButtons){
 	let tagBox = getTagBox(document);
-	if (tagBox){
+	if (tagBox && !hideSubuscriptionButtons){
 		linkifyTags(tagBox, storedTags);
 	}
 
 	//Then linkify navbar
-	let ul = document.getElementById("nav-posts").parentElement;
-	let watchTower = document.createElement("li");
+	let navPosts = document.getElementById("nav-posts");
+	let watchTower;
+	let ul;
+	if (navPosts){
+		ul = navPosts.parentElement;
+		watchTower = document.createElement("li");
+	} else {
+		ul = document.getElementById("links");
+		watchTower = document.createElement("a");
+	}
 
 	let poneWithFleshlight = document.createElement("a");
 	poneWithFleshlight.href = "javascript:void(0)";

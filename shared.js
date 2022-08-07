@@ -1,4 +1,6 @@
 const TAG_PER_QUERY_LIMIT = 40;
+const WATCHED_URL_FLAG = "&redirect=watched";
+const WATCHED_URL = "https://e621.net/#" + WATCHED_URL_FLAG;
 const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
 const MERGE_LOGGING = false;
@@ -79,9 +81,6 @@ function generateQueries(storedTags){
 
 	for (let offset = 0; offset < storedTags.length; offset += TAG_PER_QUERY_LIMIT){
 		let batch = storedTags.slice(offset, offset + TAG_PER_QUERY_LIMIT);
-		// for (let tag of slice){
-		// 	query += encodeURIComponent("~" + tag.split(" ").join("_")) + "+";
-		// }
 		let query = batch.map(tag => encodeURIComponent("~" + tag.split(" ").join("_"))).join("+");
 
 		queries.push(query);
@@ -95,7 +94,7 @@ function encodeSearchQuery(query){
 }
 
 function generateURL(page, query){
-	return "https://e621.net/posts?page=" + page + "&tags=" + query;
+	return "https://e621.net/posts?page=" + page + (query ? "&tags=" + query : "");
 }
 
 function getPostId(preview){
