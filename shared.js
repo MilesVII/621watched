@@ -54,18 +54,15 @@ function censor(page){
 	let blacklistRaw = Array.from(page.querySelectorAll("meta")).find(e => e.name == "blacklisted-tags");
 	if (!blacklistRaw || !blacklistRaw.content) return page;
 	blacklistRaw = blacklistRaw.content;
-	let blacklist = blacklistRaw.slice(1, -1).split(",").map(t => t.slice(1, -1));
+	let blacklist = JSON.parse(blacklistRaw)
 	
 	let previews = getPreviews(page);
 	for (let preview of previews){
 		let tags = preview.dataset.tags.split(" ");
-		for (let blackTag of blacklist)
-			if (tags.includes(blackTag)){
-				console.log("blacktagged " + preview.dataset.id + " by " + blackTag);
-				//console.log(preview);
-				preview.style.display = "none";
-				continue;
-			}
+		if (tags.some(t => blacklist.includes(t))){
+			console.log("blacktagged " + preview.dataset.id);
+			preview.style.display = "none";
+		}
 	}
 	return page;
 }

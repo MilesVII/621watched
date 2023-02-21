@@ -8,7 +8,6 @@ const WATCHED_MENUBUTTON_CAPTION = "Watched";
 main();
 
 async function main(){
-
 	const storage = await Promise.all([
 		load("subscriptions"),
 		load("customQueries"),
@@ -22,7 +21,6 @@ async function main(){
 
 	let cumLoad = storage[3];
 	if (window.location.href.endsWith(WATCHED_URL_FLAG)){
-		console.log("redirect triggered");
 		let page = cumLoad ? cumLoad.page : 1;
 		let qurl = generateURL(page, generateQueries(storedTags)[0]);
 		await save({
@@ -51,11 +49,9 @@ async function main(){
 			for (let preview of masterPreviews){
 				if (preview.tagName != "ARTICLE") continue;
 
-				console.log("saving last seen")
 				await save({
 					"lastSeen": getPostId(preview)
 				});
-				console.log("done")
 				break;
 			}
 		}
