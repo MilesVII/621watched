@@ -63,8 +63,7 @@ function censor(previews){
 }
 
 function getPreviews(node){
-	let container = node.getElementById("posts-container");
-	return container.children;
+	return [...node.querySelectorAll("article")];
 }
 
 //Generate array of search queries

@@ -237,25 +237,28 @@ function linkifyPage(storedTags, hideSubuscriptionButtons){
 	}
 
 	//Then linkify navbar
-	let navPosts = document.getElementById("nav-posts");
 	let watchTower;
-	let ul;
-	if (navPosts){
-		ul = navPosts.parentElement;
-		watchTower = document.createElement("li");
-	} else {
-		ul = document.getElementById("links");
-		watchTower = document.createElement("a");
-	}
+	let seat;
 
-	let poneWithFleshlight = document.createElement("a");
+	const poneWithFleshlight = document.createElement("a");
 	poneWithFleshlight.href = "javascript:void(0)";
 	poneWithFleshlight.id = "nav-watched";
 	poneWithFleshlight.addEventListener("click", e => viewWatched(e, storedTags, 1));
 	poneWithFleshlight.textContent = WATCHED_MENUBUTTON_CAPTION;
 
-	watchTower.append(poneWithFleshlight);
-	ul.children[0].after(watchTower);
+	const navPosts = document.getElementById("nav-posts");
+	if (navPosts){
+		const ul = navPosts.parentElement;
+		watchTower = document.createElement("li");
+		watchTower.append(poneWithFleshlight);
+		ul.children[0].after(watchTower);
+	} else {
+		// main page
+		document
+			.getElementById("links")
+			?.children[0]
+			.after(poneWithFleshlight);
+	}
 }
 
 function getTagBox(root){
