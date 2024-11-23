@@ -104,13 +104,6 @@ async function checkForNewImages(lastSeen, storedTags, storedQueries){
 	let pages = await loadPages(urls, counter => {
 		setCheckingStatus("Checking for new images... (" + counter + "/" + urls.length + ")");
 	});
-	
-	// for (let i = 0; i < queryQueue.length; ++i){
-	// 	let request = new XMLHttpRequest();
-	// 	request.addEventListener("load", onSlavePageLoad);
-	// 	request.open("GET", generateURL(1, queryQueue[i]));
-	// 	request.send();
-	// }
 
 	let newPostCounter = 0;
 	let failedToLoad = false;
@@ -121,7 +114,6 @@ async function checkForNewImages(lastSeen, storedTags, storedQueries){
 		failedToLoad = true;
 	} else {
 		for (let page of pages){
-			//let slave = new DOMParser().parseFromString(page, "text/html");
 			let newPosts = countUnseenPosts(page, lastSeen);
 			if (newPosts.overflow) {
 				overflow = newPosts.batch;

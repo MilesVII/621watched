@@ -89,10 +89,9 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 	}
 
 	let pages = await loadPages(urls, progressbarCallback);
-	pages = pages.map(page => censor(page));
 
 	for (let page of pages){
-		let previews = getPreviews(page);
+		let previews = censor(getPreviews(page));
 
 		while (previews.length > 0){
 			for (let masterPreview of masterPreviews){
@@ -108,6 +107,9 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 			embedTrendingTags(tagBox, storedTags);
 		}
 	}
+
+	const blackEnabler = document.querySelector("disable-all-blacklists");
+	if (blackEnabler) blackEnabler.click();
 }
 
 function embedTrendingTags(slaveTagBox, storedTags){

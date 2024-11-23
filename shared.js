@@ -50,21 +50,16 @@ async function loadPages(urls, pageLoadedCallback = null){
 	return doms;
 }
 
-function censor(page){
+function censor(previews){
 	let blacklistRaw = Array.from(page.querySelectorAll("meta")).find(e => e.name == "blacklisted-tags");
 	if (!blacklistRaw || !blacklistRaw.content) return page;
 	blacklistRaw = blacklistRaw.content;
 	let blacklist = JSON.parse(blacklistRaw)
 	
-	let previews = getPreviews(page);
-	for (let preview of previews){
+	return previews.filter(preview => {
 		let tags = preview.dataset.tags.split(" ");
-		if (tags.some(t => blacklist.includes(t))){
-			console.log("blacktagged " + preview.dataset.id);
-			preview.style.display = "none";
-		}
-	}
-	return page;
+		return !tags.some(t => blacklist.includes(t));
+	})
 }
 
 function getPreviews(node){
