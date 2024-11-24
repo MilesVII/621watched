@@ -51,8 +51,8 @@ async function loadPages(urls, pageLoadedCallback = null){
 }
 
 function censor(previews){
-	let blacklistRaw = Array.from(page.querySelectorAll("meta")).find(e => e.name == "blacklisted-tags");
-	if (!blacklistRaw || !blacklistRaw.content) return page;
+	let blacklistRaw = Array.from(document.querySelectorAll("meta")).find(e => e.name == "blacklisted-tags");
+	if (!blacklistRaw || !blacklistRaw.content) return [...previews];
 	blacklistRaw = blacklistRaw.content;
 	let blacklist = JSON.parse(blacklistRaw)
 	

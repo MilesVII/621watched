@@ -94,9 +94,10 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 		let previews = censor(getPreviews(page));
 
 		while (previews.length > 0){
+			const slavePreview = previews.pop();
 			for (let masterPreview of masterPreviews){
 				let isLastMasterPreview = masterPreview == (masterPreviews[masterPreviews.length - 1]);
-				if (tryEmbedPreview(previews[0], masterPreview, isLastMasterPreview))
+				if (tryEmbedPreview(slavePreview, masterPreview, isLastMasterPreview))
 					break;
 			}
 		}
