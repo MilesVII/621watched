@@ -1,7 +1,7 @@
 {
-	"manifest_version": 2,
+	"manifest_version": 3,
 	"name": "e621 Subscriptions",
-	"version": "2.1.3",
+	"version": "2.2.0",
 
 	"description": "Adds Watched/Subscribe feature to e621.net",
 
@@ -10,11 +10,13 @@
 	},
 
 	"permissions": [
-		"storage",
-		"*://*.e621.net/*" 
+		"storage"
+	],
+	"host_permissions": [
+		"*://*.e621.net/*"
 	],
 	
-	"browser_action": {
+	"action": {
 		"default_icon": "graphics/e621.png",
 		"default_title": "E621 Watched",
 		"default_popup": "popup/popup.html"
