@@ -85,7 +85,7 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 	if (urls.length > 1){
 		let bar = createProgressbar(urls.length);
 		progressbarCallback = counter => bar.set(counter);
-		document.querySelector(".navigation").appendChild(bar.element);
+		(document.querySelector(".navigation") || document.querySelector("nav")).appendChild(bar.element);
 	}
 
 	let pages = await loadPages(urls, progressbarCallback);
