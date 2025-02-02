@@ -5,6 +5,12 @@
 
 	"description": "Adds Watched/Subscribe feature to e621.net",
 
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "{7e0fb8e6-3552-4999-85a8-5c5f4b473d49}"
+		}
+	},
+
 	"icons": {
 		"96": "graphics/e621.png"
 	},
