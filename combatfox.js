@@ -103,10 +103,9 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 		}
 
 		//Embed trendingtags
-		let tagBox = getTagBox(page);
-		if (tagBox){
+		const tagBox = page.querySelector(".tag-list");
+		if (tagBox)
 			embedTrendingTags(tagBox, storedTags);
-		}
 	}
 
 	const blackEnabler = document.querySelector("disable-all-blacklists");
@@ -114,14 +113,9 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 }
 
 function embedTrendingTags(slaveTagBox, storedTags){
-	linkifyTags(slaveTagBox, storedTags);
-
-	let tagBox = getTagBox(document);
-	if (slaveTagBox)
-		slaveTagBox = slaveTagBox.querySelector("ul");
-	if (tagBox)
-		tagBox.append(slaveTagBox);
-		// while (slaveTagBox.children.length > 0)
+	document
+		.querySelector(".tag-list")
+		?.append(...linkifyTags(slaveTagBox, storedTags).children)
 }
 
 //Insert slave preview node into page near master node
@@ -216,25 +210,19 @@ function toggleSubscription(event, storedTags, tag){
 
 //Add subscription buttons to tag list
 function linkifyTags(tagBox, storedTags){
-	if (!tagBox){
-		return;
-	}
-	let tagList = tagBox.querySelectorAll("li");
-	for (let item of tagList){
-		let tag = item.querySelector(".search-tag");
+	tagBox.querySelectorAll(".tag-list-item")
+		.forEach(tag => {
+			const name = tag.querySelector(".tag-list-name");
+			if (!name) return;
 
-		if (!tag){
-			continue;
-		} else {
-			item.prepend(generateSubscriptionButton(tag.textContent, storedTags));
-		}
-	}
+			tag.append(generateSubscriptionButton(name.textContent?.trim(), storedTags))
+		});
+	return tagBox;
 }
 
 function linkifyPage(storedTags, hideSubuscriptionButtons){
-	let tagBox = getTagBox(document);
-	if (tagBox && !hideSubuscriptionButtons){
-		linkifyTags(tagBox, storedTags);
+	if (!hideSubuscriptionButtons){
+		linkifyTags(document, storedTags);
 	}
 
 	//Then linkify navbar
@@ -260,14 +248,6 @@ function linkifyPage(storedTags, hideSubuscriptionButtons){
 			?.children[0]
 			.after(poneWithFleshlight);
 	}
-}
-
-function getTagBox(root){
-	let tagBox = root.getElementById("tag-box");
-	if (!tagBox)
-		tagBox = root.getElementById("tag-list");
-	if (tagBox)
-		return tagBox;
 }
 
 //Add event dispatching to inform processor that page is changed
