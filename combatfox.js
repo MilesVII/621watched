@@ -210,13 +210,14 @@ function toggleSubscription(event, storedTags, tag){
 
 //Add subscription buttons to tag list
 function linkifyTags(tagBox, storedTags){
-	tagBox.querySelectorAll(".tag-list-item")
-		.forEach(tag => {
-			const name = tag.querySelector(".tag-list-name");
-			if (!name) return;
+	tagBox.querySelectorAll(".tag-list-item").forEach(tag => {
+		const name =
+			decodeURIComponent(tag.dataset.name)
+			?? tag.querySelector(".tag-list-name")?.textContent?.trim();
+		if (!name) return;
 
-			tag.append(generateSubscriptionButton(name.textContent?.trim(), storedTags))
-		});
+		tag.append(generateSubscriptionButton(name, storedTags))
+	});
 	return tagBox;
 }
 
