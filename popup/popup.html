@@ -10,48 +10,67 @@
 	</head>
 
 	<body>
-		<div id="Header">
-			E621 Subscriptions
-		</div>
-		<div id="Belly">
-			<div id="newImages" style="text-align: center; width: 100%;"></div>
-			<a id="viewWatched" style="text-align: center; width: 100%;"></a></br>
-			Check out navigation bar at the top of the page to view <b>Watched</b> tags</br></br>
-			Here is the list of tags you watch:</br>
-			<div id="nuffin" style="text-align: center; width: 100%; margin: 10px; color: #6cf;">
+		<header>
+			e621 Subscriptions
+		</header>
+		<main>
+			<div class="indicator"></div>
+			
+			<a class="view-button">View watched</a>
+			
+			<div>
+				Check out navigation bar at the top of the page to view <b>Watched</b> tags
+			</div>
+			<div>
+				Here is the list of tags you watch:
+			</div>
+
+			<div class="tag-list-placeholder hidden">
 				You aren't subscribed to any tags yet!
 			</div>
-			<ul id="watchedTags">
-			</ul>
-			<div id="customQueryList">
-			</div>
-			<div id="customQueries">
-				<input id="customQueriesInput" placeholder="Enter custom complex search query to watch"><span class="sidebutton" id="customQueryAdderButton"> + </span>
-			</div>
-			<div>
-				<input type="checkbox" id="hideSubuscriptionButton">
-				<label for="hideSubuscriptionButton">Hide subscription button (OwO/XwX)</label>
-			</div>
-			<div>
-				<a id="permalink">Permalink to watched page</a>
+			<div class="tag-list"></div>
+
+			<div class="custom-query-list"></div>
+
+			<div class="custom-query-item">
+				<input
+					type="text"
+					id="custom-query-input"
+					class="custom-query-item-main"
+					placeholder="Enter custom complex search query to watch"
+				>
+				<div class="custom-query-item-side add" id="custom-query-input-add"></div>
 			</div>
 
 			<hr>
-			<a id="backupshow_button" href="#">Backup options</a>
-			<div id="backup" style="text-align: center; display:none;">
-				Place previously exported text here and </br>click "Import" to load the list of tags</br>
-				Warning: Previous tags will be overwritten!
-				<textarea id="backupText" style="resize: none; width: 80%;"></textarea></br>
-				<ul style="margin: auto; columns: 2; -webkit-columns: 2; -moz-columns: 2; padding: 0; list-style-type: none;">
-					<li><a id="import_button" href="#">Import</a></li>
-					<li><a id="copy_button" href="#">Copy</a></li>
-				</ul>
+
+			<div class="checkbox-row">
+				<input type="checkbox" id="hide-subs-button-checkbox">
+				<label for="hide-subs-button-checkbox">Hide subscription button (OwO/XwX)</label>
 			</div>
 
-			<div style="text-align: right; width: 100%; margin: auto; font-size: 12px; vertical-align: middle;">
-				Developed by <a href="https://e621.net/forum/show/269304" style="color: #ddd;" target="_blank">Miles Seventh =C</a>
-			</div>
-		</div>
+			<a id="permalink">Permalink to watched page</a>
+
+			<button id="backup-view-toggle">Backup options</button>
+
+			<fieldset class="backup-view hidden">
+				<legend>Backup options</legend>
+				<div>
+					Place previously exported text here and click "Import" restore from backup
+				</div>
+				<div>
+					Warning: Your previous subscruptions will be overwritten!
+				</div>
+				<textarea id="backup-textarea"></textarea>
+				<div class="backup-buttons-row">
+					<button id="backup-import">Import</button>
+					<button id="backup-copy">Copy</button>
+				</div>
+			</fieldset>
+		</main>
+		<footer>
+			Made by <a href="https://e621.net/forum/show/269304" target="_blank">Miles Seventh</a><span class="title"></span>
+		</footer>
 		<script type="text/javascript" src="./../shared.js"></script>
 		<script type="text/javascript" src="popup.js"></script>
 	</body>

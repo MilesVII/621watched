@@ -1,3 +1,41 @@
+
+const e = {
+	indicator: document.querySelector(".indicator"),
+	mainButton: document.querySelector(".view-button"),
+	tagList: {
+		placeholder: document.querySelector(".tag-list-placeholder"),
+		the: document.querySelector(".tag-list")
+	},
+	customQueries: {
+		list: document.querySelector(".custom-query-list"),
+		input: document.querySelector("#custom-query-input"),
+		add: document.querySelector("#custom-query-input-add")
+	},
+	hideSubsCheckbox: document.querySelector("#hide-subs-button-checkbox"),
+	permalink: document.querySelector("#permalink"),
+	backup: {
+		view: document.querySelector(".backup-view"),
+		toggle: document.querySelector("#backup-view-toggle"),
+		textarea: document.querySelector("#backup-textarea"),
+		import: document.querySelector("#backup-import"),
+		copy: document.querySelector("#backup-copy")
+	},
+	footer: {
+		title: document.querySelector("footer .title")
+	}
+};
+
+const titles = [
+	", the one, the only",
+	", the other one",
+	", the servant of cringe",
+	", the uhhhh ano~",
+	", the dick painter",
+	", the fops hors",
+	" =P",
+	" lemon melon cookie"
+];
+
 main();
 
 async function main(){
@@ -21,34 +59,32 @@ async function main(){
 		}
 	}
 
-	document.getElementById("import_button").addEventListener("click", importTagsFromBackup);
-	document.getElementById("backupshow_button").addEventListener("click", showBackupOptions);
-	document.getElementById("copy_button").addEventListener("click", e => copyTags(storedTags));
-	document.getElementById("customQueryAdderButton").addEventListener("click", addCustomQuery);
-	document.getElementById("hideSubuscriptionButton").addEventListener("change", toggleSubsButton);
-	document.getElementById("hideSubuscriptionButton").checked = Boolean(storage[2]);
-	console.log(storage[2]);
-	document.getElementById("permalink").href = WATCHED_URL;
+	e.backup.toggle.addEventListener("click", showBackupOptions);
+	e.backup.import.addEventListener("click", importTagsFromBackup);
+	e.backup.copy.addEventListener("click", copyTags);
+	e.customQueries.add.addEventListener("click", addCustomQuery);
+	e.hideSubsCheckbox.addEventListener("change", toggleSubsButton);
+	e.hideSubsCheckbox.checked = Boolean(storage[2]);
+	e.permalink.href = WATCHED_URL;
+
 	loadTagsToBackupText(storedTags);
+
+	e.footer.title.textContent = titles[Math.floor((titles.length - 1) * Math.random())];
 }
 
 async function refresh(storedTags, storedQueries, skipQueries = false){
 	//Update list of tags
-	let ul = document.getElementById("watchedTags");
-	while (ul.lastChild) {
-		ul.removeChild(ul.lastChild);
-	}
-	for (let tag of storedTags){
-		ul.appendChild(generateTagItem(tag));
-	}
-	if (!skipQueries)
-		for (let query of storedQueries){
-			createCustomQueryItem(query);
-		}
+	const tagList = e.tagList.the;
+	tagList.innerHTML = "";
+	for (const tag of storedTags)
+		tagList.appendChild(generateTagItem(tag));
 
-	let subscriptionsLength = storedTags.length + storedQueries.length;
-	//Generate link for Watched button and reset watchTower
-	let watchedButton = document.getElementById("viewWatched");
+	if (!skipQueries)
+		for (let query of storedQueries)
+			createCustomQueryItem(query);
+
+	// Generate a link for Watched button and reset watchTower
+	let watchedButton = e.mainButton;
 	let qurl = generateURL(1, generateQueries(storedTags)[0]);
 	await save({
 		"watchTower": {
@@ -57,23 +93,27 @@ async function refresh(storedTags, storedQueries, skipQueries = false){
 		}
 	});
 	watchedButton.href = qurl;
-	watchedButton.style.display = subscriptionsLength == 0 ? "none" : "block";
-	watchedButton.textContent = "View watched";
 
-	document.getElementById("nuffin").style.display = subscriptionsLength == 0 ? "block" : "none";
+	const subscriptionsLength = storedTags.length + storedQueries.length;
+	const placeholder = e.tagList.placeholder;
+	if (subscriptionsLength == 0){
+		placeholder.classList.remove("hidden");
+		watchedButton.classList.add("hidden");
+	} else {
+		placeholder.classList.add("hidden");
+		watchedButton.classList.remove("hidden");
+	}
 }
 
 function generateTagItem(tag){
-	let li = document.createElement("li");
-	li.className = "tagItem";
-
 	let a = document.createElement("a");
+	a.className = "button-spacing";
 	a.href = "https://e621.net/posts?tags=" + sanitize(tag);
 	a.target = "_blank";
 	a.textContent = tag;
-	li.appendChild(a);
+	a.title = tag;
 
-	return li;
+	return a;
 }
 
 function sanitize(tag){
@@ -81,7 +121,7 @@ function sanitize(tag){
 }
 
 function setCheckingStatus(status){
-	document.getElementById("newImages").textContent = status;
+	e.indicator.textContent = status;
 }
 
 async function checkForNewImages(lastSeen, storedTags, storedQueries){
@@ -100,7 +140,6 @@ async function checkForNewImages(lastSeen, storedTags, storedQueries){
 		urls = urls.concat(additionalURLs);
 	}
 
-	console.log(urls);
 	let pages = await loadPages(urls, counter => {
 		setCheckingStatus("Checking for new images... (" + counter + "/" + urls.length + ")");
 	});
@@ -153,31 +192,32 @@ function countUnseenPosts(slavePage, lastSeen){
 /////////////////////////////////////////////////////////////////////////////////////
 //Backup Options
 
-function showBackupOptions(){
-	document.getElementById("backupshow_button").style.display = "none";
-	document.getElementById("backup").style.display = "block";
+function showBackupOptions() {
+	e.backup.toggle.classList.add("hidden")
+	e.backup.view.classList.remove("hidden");
 }
 
-async function importTagsFromBackup(){
-	storedTags = document.getElementById("backupText").value.trim().split("\n");
+async function importTagsFromBackup() {
+	storedTags = e.backup.textarea.value.trim().split("\n");
 	await save({"subscriptions": storedTags});
-	document.getElementById("import_button").textContent = "Saved succesfully. Please reopen the window";
+	e.backup.import.textContent = "Saved succesfully. Please reopen the window";
 }
 
-function copyTags(storedTags){
+async function copyTags() {
+	const storedTags = await load("subscriptions");
 	loadTagsToBackupText(storedTags);
-	let backupText = document.getElementById("backupText");
+	const backupText = e.backup.textarea;
 	backupText.focus();
 	backupText.select();
 	document.execCommand("copy");
 }
 
 function loadTagsToBackupText(storedTags){
-	document.getElementById("backupText").value = storedTags.join("\n");
+	e.backup.textarea.value = storedTags.join("\n");
 }
 
 function toggleSubsButton(){
-	let checkbox = document.getElementById("hideSubuscriptionButton");
+	let checkbox = e.hideSubsCheckbox;
 	checkbox.checked;
 	
 	save({
@@ -188,17 +228,15 @@ function toggleSubsButton(){
 /////////////////////////////////////////////////////////////////////////////////////
 //Custom queries
 function createCustomQueryItem(value){
-	let container = document.createElement("div");
-	container.style.display = "block";
-	container.style.marginBottom = "4px";
+	const container = document.createElement("div");
+	container.className = "custom-query-item";
 
-	let newItem = document.createElement("div");
-	newItem.className = "customQueryItem";
-	newItem.textContent = value;
+	const newItem = document.createElement("div");
+	newItem.className = "custom-query-item-main button-spacing";
+	newItem.title = newItem.textContent = value;
 
-	let closeButton = document.createElement("div");
-	closeButton.className = "sidebutton close";
-	closeButton.textContent = "X";
+	const closeButton = document.createElement("div");
+	closeButton.className = "custom-query-item-side close";
 	closeButton.addEventListener("click", async () => {
 		let storedQueries = await load("customQueries");
 		if (storedQueries){
@@ -214,36 +252,31 @@ function createCustomQueryItem(value){
 		}
 	});
 
-
 	container.appendChild(newItem);
 	container.appendChild(closeButton);
 
-	document.getElementById("customQueryList").appendChild(container);
+	e.customQueries.list.appendChild(container);
 }
 
 async function addCustomQuery(){
-	let input = document.getElementById("customQueriesInput");
-	let v = input.value.trim();
-	if (v.length == 0) return;
+	const input = e.customQueries.input;
+	const value = input.value.trim();
+	if (value.length == 0) return;
 
 	let storedQueries = await load("customQueries");
 
 	if (!storedQueries || !Array.isArray(storedQueries)){
 		storedQueries = [];
 	}
-	storedQueries.push(v);
+	storedQueries.push(value);
 	await save({
 		customQueries: storedQueries
-	})
+	});
 
-	let storedTags = [];
-	let tagsStorage = await load("subscriptions");
-	if (tagsStorage){
-		storedTags = tagsStorage;
-	}
+	const storedTags = await load("subscriptions") ?? [];
 	refresh(storedTags, storedQueries, true);
 
-	createCustomQueryItem(v);
+	createCustomQueryItem(value);
 
 	input.value = "";
 }
