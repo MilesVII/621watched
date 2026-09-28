@@ -1,3 +1,9 @@
+@font-face{
+	font-family: "Ubuntu Sans";
+	src: url("./ubuntu-sans.ttf") format("truetype");
+	font-style: normal;
+}
+
 :root {
 	--spacing-xs: 4px;
 	--spacing-s: 8px;
@@ -13,7 +19,7 @@
 	--color-warning: #fc6;
 
 	background: var(--color-background);
-	--default-font: normal 300 20px 'Roboto', 'Calibri';
+	--default-font: normal 500 20px "Ubuntu Sans";
 	font: var(--default-font);
 }
 

@@ -7,7 +7,8 @@
 
 	"browser_specific_settings": {
 		"gecko": {
-			"id": "{7e0fb8e6-3552-4999-85a8-5c5f4b473d49}"
+			"id": "{7e0fb8e6-3552-4999-85a8-5c5f4b473d49}",
+			"data_collection_permissions": { "required": ["none"] }
 		}
 	},
 
