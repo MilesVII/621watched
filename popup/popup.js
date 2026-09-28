@@ -1,6 +1,11 @@
 
 const e = {
 	indicator: document.querySelector(".indicator"),
+	notice: {
+		box: document.querySelector(".notice"),
+		text: document.querySelector(".notice-text"),
+		action: document.querySelector(".notice-action")
+	},
 	mainButton: document.querySelector(".view-button"),
 	tagList: {
 		placeholder: document.querySelector(".tag-list-placeholder"),
@@ -50,13 +55,7 @@ async function main(){
 
 	if (storedTags.length + storedQueries.length > 0){
 		refresh(storedTags, storedQueries);
-		let lastSeen = await load("lastSeen");
-
-		if (lastSeen){
-			checkForNewImages(lastSeen, storedTags, storedQueries);
-		} else {
-			setCheckingStatus("Last seen post is unknown, please view watched tags manually");
-		}
+		startCheck(storedTags, storedQueries);
 	}
 
 	e.backup.toggle.addEventListener("click", showBackupOptions);
@@ -124,15 +123,90 @@ function setCheckingStatus(status){
 	e.indicator.textContent = status;
 }
 
+//Shows an explanation under the counter. action is optional:
+//	{ label, href } opens a link in a new tab, { label, onClick } runs a handler
+function showNotice(text, action = null){
+	e.notice.text.textContent = text;
+	e.notice.box.classList.remove("hidden");
+
+	const button = e.notice.action.cloneNode(false); //drop listeners from a previous notice
+	e.notice.action.replaceWith(button);
+	e.notice.action = button;
+
+	if (!action){
+		button.classList.add("hidden");
+		return;
+	}
+	button.textContent = action.label;
+	button.classList.remove("hidden");
+	if (action.href){
+		button.href = action.href;
+		button.target = "_blank";
+	} else {
+		button.href = "#";
+		button.addEventListener("click", event => {
+			event.preventDefault();
+			action.onClick();
+		});
+	}
+}
+
+function hideNotice(){
+	e.notice.box.classList.add("hidden");
+}
+
+async function hasHostPermission(){
+	try {
+		return await browser.permissions.contains({ origins: [E621_ORIGIN_PATTERN] });
+	} catch (error){
+		//permissions API unavailable: assume granted and let fetch() report the truth
+		return true;
+	}
+}
+
+//permissions.request must be called synchronously from a user gesture (the click handler),
+//so nothing may be awaited before it
+function requestHostPermission(storedTags, storedQueries){
+	browser.permissions.request({ origins: [E621_ORIGIN_PATTERN] })
+		.then(granted => {
+			if (granted)
+				startCheck(storedTags, storedQueries);
+		})
+		.catch(error => {
+			showNotice("Couldn't request permission: " + error.message);
+		});
+}
+
+async function startCheck(storedTags, storedQueries){
+	hideNotice();
+
+	if (!await hasHostPermission()){
+		setCheckingStatus("Can't check for new images");
+		showNotice(
+			"The extension isn't allowed to access e621.net, so it can't look for new posts. " +
+			"Grant it access (or enable it in the extension's permission settings) and it will check again.",
+			{ label: "Allow access to e621.net", onClick: () => requestHostPermission(storedTags, storedQueries) }
+		);
+		return;
+	}
+
+	const lastSeen = await load("lastSeen");
+	if (lastSeen){
+		checkForNewImages(lastSeen, storedTags, storedQueries);
+	} else {
+		setCheckingStatus("Last seen post is unknown, please view watched tags manually");
+	}
+}
+
 async function checkForNewImages(lastSeen, storedTags, storedQueries){
 	if ((storedTags.length + storedQueries.length) == 0)
 		return;
-	
+
 	setCheckingStatus("Checking for new images...");
 
 	let queryQueue = generateQueries(storedTags);
 	let urls = queryQueue.map(e => generateURL(1, e));
-	
+
 	if (storedQueries && storedQueries.length > 0){
 		let additionalURLs = storedQueries.map(query => {
 			return generateURL(1, encodeSearchQuery(query));
@@ -140,34 +214,35 @@ async function checkForNewImages(lastSeen, storedTags, storedQueries){
 		urls = urls.concat(additionalURLs);
 	}
 
-	let pages = await loadPages(urls, counter => {
+	const results = await fetchPages(urls, counter => {
 		setCheckingStatus("Checking for new images... (" + counter + "/" + urls.length + ")");
 	});
 
+	const loaded = results.filter(r => r.ok);
+	const failed = results.filter(r => !r.ok);
+	if (ERROR_LOGGING && failed.length > 0)
+		console.log("Failed to load search queries", failed);
+
+	//Count across every page that did load. If some page consisted entirely of unseen
+	//posts there are more on its next pages, so the total is a lower bound ("N+")
 	let newPostCounter = 0;
-	let failedToLoad = false;
-	let overflow = 0;
-	if (pages.length == 0) {
-		if (ERROR_LOGGING)
-			console.log("Error occured while loading search queries");
-		failedToLoad = true;
-	} else {
-		for (let page of pages){
-			let newPosts = countUnseenPosts(page, lastSeen);
-			if (newPosts.overflow) {
-				overflow = newPosts.batch;
-				break;
-			} else {
-				newPostCounter += newPosts.count;
-			}
-		}
+	let overflow = false;
+	for (const result of loaded){
+		const newPosts = countUnseenPosts(result.dom, lastSeen);
+		newPostCounter += newPosts.count;
+		if (newPosts.overflow)
+			overflow = true;
+	}
+
+	if (loaded.length == 0){
+		setCheckingStatus("Can't check for new images");
+		explainFailure(failed[0], storedTags, storedQueries);
+		return;
 	}
 
 	let echo;
-	if (failedToLoad)
-		echo = "Failed to load, please check manually";
-	else if (overflow > 0)
-		echo = overflow + "+ new images";
+	if (overflow)
+		echo = newPostCounter + "+ new images";
 	else if (newPostCounter == 0)
 		echo = "No new images";
 	else if (newPostCounter == 1)
@@ -175,7 +250,39 @@ async function checkForNewImages(lastSeen, storedTags, storedQueries){
 	else
 		echo = newPostCounter + " new images";
 
+	if (failed.length > 0)
+		echo += " (" + failed.length + " of " + results.length + " queries failed)";
+
 	setCheckingStatus(echo);
+	if (failed.length > 0)
+		explainFailure(failed[0], storedTags, storedQueries);
+}
+
+function explainFailure(result, storedTags, storedQueries){
+	const retry = { label: "Try again", onClick: () => startCheck(storedTags, storedQueries) };
+
+	switch (result.error){
+		case "challenge":
+			showNotice(
+				"e621.net is asking to solve a Cloudflare check before it serves pages. " +
+				"Opening e621.net *might* help.",
+				{ label: "Open e621.net", href: "https://e621.net/posts" }
+			);
+			break;
+		case "http":
+			showNotice(
+				`e621.net answered with HTTP ${result.status}${result.message ? ` (${result.message})` : ""}. ` +
+				"The site may be down, rate limiting, or blocking this request.",
+				retry
+			);
+			break;
+		default: //network
+			showNotice(
+				`Couldn't reach e621.net: ${result.message || "network error"}.`,
+				retry
+			);
+			break;
+	}
 }
 
 function countUnseenPosts(slavePage, lastSeen){
@@ -185,7 +292,9 @@ function countUnseenPosts(slavePage, lastSeen){
 	return {
 		count: newPreviews.length,
 		batch: previews.length,
-		overflow: previews.length == newPreviews.length
+		//a page made only of unseen posts means its next pages hold more;
+		//an empty page must not count as overflow
+		overflow: previews.length > 0 && previews.length == newPreviews.length
 	};
 }
 

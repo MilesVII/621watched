@@ -1,6 +1,7 @@
 const TAG_PER_QUERY_LIMIT = 40;
 const WATCHED_URL_FLAG = "&redirect=watched";
 const WATCHED_URL = "https://e621.net/#" + WATCHED_URL_FLAG;
+const E621_ORIGIN_PATTERN = "*://*.e621.net/*"; //must match host_permissions in manifest.json
 const VERBOSE_LOGGING = false;
 const DEBUG_LOGGING = false;
 const MERGE_LOGGING = false;
@@ -9,45 +10,64 @@ const IS_CHROME = !browser;
 
 if (!browser) var browser = chrome;
 
-async function loadPages(urls, pageLoadedCallback = null){
-	let requests = [];
-	let failed = false;
-	
+//Fetches every URL in parallel. Never throws: each URL gets a result object
+//	{ url, status, ok, dom, error, message }
+//where error is null on success or one of:
+//	"network"   - fetch() itself rejected (no host permission, offline, blocked, redirect)
+//	"challenge" - Cloudflare served a browser challenge instead of the page
+//	"http"      - any other non-2xx response
+async function fetchPages(urls, pageLoadedCallback = null){
 	let loadedPages = 0;
-	for (let url of urls){
-		let promise = new Promise(resolve => {
-			fetch(url, {
-				redirect: "error"
-			})//can't use Promise.allSettled due to poor support by older browsers
-				.then(response => {
-					loadedPages += 1;
-					resolve(response);
-					if (pageLoadedCallback)
-						pageLoadedCallback(loadedPages);
-				}).catch(e => {
-					loadedPages += 1;
-					failed = true;
-					resolve(null);
-					if (pageLoadedCallback)
-						pageLoadedCallback(loadedPages);
-				});
-		});
-		requests.push(promise);
-	}
-	let responses = await Promise.all(requests);
-	if (failed) return [];
+	const reportProgress = () => {
+		loadedPages += 1;
+		if (pageLoadedCallback)
+			pageLoadedCallback(loadedPages);
+	};
 
-	let parsed = [];
-	for (let response of responses){
-		if (response)
-			parsed.push(response.text());
-	}
+	return Promise.all(urls.map(async url => {
+		const result = { url, status: 0, ok: false, dom: null, error: null, message: "" };
+		try {
+			//credentials: "include" sends the user's e621 cookies (session, cf_clearance),
+			//so the request looks like the user's own browsing rather than an anonymous bot
+			const response = await fetch(url, {
+				redirect: "error",
+				credentials: "include"
+			});
+			result.status = response.status;
+			const body = await response.text();
 
-	let pages = await Promise.all(parsed);
+			if (isCloudflareChallenge(response, body)){
+				result.error = "challenge";
+			} else if (!response.ok){
+				result.error = "http";
+				result.message = response.statusText;
+			} else {
+				result.dom = new DOMParser().parseFromString(body, "text/html");
+				result.ok = true;
+			}
+		} catch (e){
+			result.error = "network";
+			result.message = (e && e.message) ? e.message : String(e);
+		}
+		reportProgress();
+		return result;
+	}));
+}
 
-	let doms = pages.map(page => new DOMParser().parseFromString(page, "text/html"));
+function isCloudflareChallenge(response, body){
+	if (response.headers.get("cf-mitigated") == "challenge")
+		return true;
+	if (response.status != 403 && response.status != 503)
+		return false;
+	return /cdn-cgi\/challenge-platform|cf-chl|cf_chl|Just a moment/i.test(body);
+}
 
-	return doms;
+//Backwards-compatible wrapper used by the content script:
+//returns parsed documents, or [] if any page failed to load
+async function loadPages(urls, pageLoadedCallback = null){
+	const results = await fetchPages(urls, pageLoadedCallback);
+	if (results.some(r => !r.ok)) return [];
+	return results.map(r => r.dom);
 }
 
 function censor(previews){

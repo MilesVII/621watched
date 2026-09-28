@@ -10,6 +10,7 @@
 	--color-accent: #6cf;
 	--color-secondary: #28c;
 	--color-button: rgba(150.0, 150.0, 255.0, 0.4);
+	--color-warning: #fc6;
 
 	background: var(--color-background);
 	--default-font: normal 300 20px 'Roboto', 'Calibri';
@@ -100,6 +101,24 @@ footer {
 .view-button, .indicator {
 	display: block;
 	text-align: center;
+}
+
+.notice {
+	display: flex;
+	flex-flow: column nowrap;
+	gap: var(--spacing-xs);
+	align-items: center;
+	text-align: center;
+	font-size: 16px;
+	padding: var(--spacing-s);
+	border: 2px solid var(--color-warning);
+	border-radius: var(--rounding);
+	color: var(--color-warning);
+}
+.notice-action {
+	padding: 2px var(--spacing-s);
+	border-radius: var(--rounding);
+	background-color: var(--color-button);
 }
 
 .tag-list {
