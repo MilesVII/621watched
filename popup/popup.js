@@ -66,7 +66,7 @@ async function main(){
 	e.hideSubsCheckbox.checked = Boolean(storage[2]);
 	e.permalink.href = WATCHED_URL;
 
-	loadTagsToBackupText(storedTags);
+	loadTagsToBackupText(storedTags, storedQueries);
 
 	e.footer.title.textContent = titles[Math.floor((titles.length - 1) * Math.random())];
 }
@@ -306,23 +306,64 @@ function showBackupOptions() {
 	e.backup.view.classList.remove("hidden");
 }
 
+//Backup format: one tag per line, then this separator, then one custom query per line.
+//Tags can't start with "-", so the separator line can never be mistaken for a tag.
+//Backups made before the separator existed contain tags only.
+const BACKUP_QUERIES_SEPARATOR = "--- custom queries ---";
+
+function serializeBackup(storedTags, storedQueries){
+	return [...storedTags, BACKUP_QUERIES_SEPARATOR, ...storedQueries].join("\n");
+}
+
+//Returns { tags, queries }; queries is null for an old tags-only backup
+function parseBackup(text){
+	const unique = list => [...new Set(list)];
+	const lines = text.split("\n").map(line => line.trim()).filter(line => line.length > 0);
+	const separatorAt = lines.indexOf(BACKUP_QUERIES_SEPARATOR);
+
+	if (separatorAt < 0)
+		return { tags: unique(lines), queries: null };
+	return {
+		tags: unique(lines.slice(0, separatorAt)),
+		queries: unique(lines.slice(separatorAt + 1))
+	};
+}
+
 async function importTagsFromBackup() {
-	storedTags = e.backup.textarea.value.trim().split("\n");
-	await save({"subscriptions": storedTags});
-	e.backup.import.textContent = "Saved succesfully. Please reopen the window";
+	const backup = parseBackup(e.backup.textarea.value);
+	if (backup.tags.length == 0 && backup.queries == null){
+		e.backup.import.textContent = "Nothing to import";
+		return;
+	}
+
+	const storedTags = backup.tags;
+	const storedQueries = backup.queries ?? ((await load("customQueries")) || []);
+	await save({
+		"subscriptions": storedTags,
+		"customQueries": storedQueries
+	});
+
+	//Redraw the popup in place instead of asking to reopen it
+	e.customQueries.list.innerHTML = "";
+	await refresh(storedTags, storedQueries);
+	startCheck(storedTags, storedQueries);
+	e.backup.import.textContent = "Imported";
 }
 
 async function copyTags() {
-	const storedTags = await load("subscriptions");
-	loadTagsToBackupText(storedTags);
+	const [storedTags, storedQueries] = await Promise.all([
+		load("subscriptions"),
+		load("customQueries")
+	]);
+	loadTagsToBackupText(storedTags || [], storedQueries || []);
 	const backupText = e.backup.textarea;
 	backupText.focus();
 	backupText.select();
 	document.execCommand("copy");
 }
 
-function loadTagsToBackupText(storedTags){
-	e.backup.textarea.value = storedTags.join("\n");
+function loadTagsToBackupText(storedTags, storedQueries){
+	e.backup.textarea.value = serializeBackup(storedTags, storedQueries);
 }
 
 function toggleSubsButton(){

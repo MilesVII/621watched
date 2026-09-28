@@ -41,19 +41,17 @@ async function main(){
 		let currentPage = cumLoad.page;
 
 		let masterPreviews = getPreviews(document);
+		let newestId = newestPostId(masterPreviews);
 		if (storedTags.length > TAG_PER_QUERY_LIMIT || storedQueries.length > 0){
-			await getDirty(currentPage, storedTags, storedQueries, masterPreviews);
+			newestId = Math.max(newestId, await getDirty(currentPage, storedTags, storedQueries, masterPreviews));
 		}
-		
-		if (currentPage == 1){
-			for (let preview of masterPreviews){
-				if (preview.tagName != "ARTICLE") continue;
 
-				await save({
-					"lastSeen": getPostId(preview)
-				});
-				break;
-			}
+		//Remember the newest post across every batch, not only the first one,
+		//otherwise the popup keeps counting posts from other batches as unseen
+		if (currentPage == 1 && newestId > 0){
+			await save({
+				"lastSeen": newestId
+			});
 		}
 		//overwriteSearchInput(storedTags);
 		processPaginator(storedTags);
@@ -69,7 +67,14 @@ function createProgressbar(max){
 		set: v => bar.value = v
 	}
 }
-//Called when tag query exceeds limit
+function newestPostId(previews){
+	return previews
+		.map(getPostId)
+		.filter(Number.isFinite)
+		.reduce((newest, id) => Math.max(newest, id), 0);
+}
+
+//Called when tag query exceeds limit. Returns the newest post id seen in the extra batches
 async function getDirty(page, storedTags, storedQueries, masterPreviews){
 	let queryQueue = generateQueries(storedTags).slice(1);
 	let urls = queryQueue.map(e => generateURL(page, e));
@@ -90,8 +95,12 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 
 	let pages = await loadPages(urls, progressbarCallback);
 
-	for (let page of pages){
-		let previews = censor(getPreviews(page));
+	let newestId = 0;
+	for (let slavePage of pages){
+		const allPreviews = getPreviews(slavePage);
+		//measured before censoring: a blacklisted post is still a post the user has "seen"
+		newestId = Math.max(newestId, newestPostId(allPreviews));
+		let previews = censor(allPreviews);
 
 		while (previews.length > 0){
 			const slavePreview = previews.pop();
@@ -103,13 +112,15 @@ async function getDirty(page, storedTags, storedQueries, masterPreviews){
 		}
 
 		//Embed trendingtags
-		const tagBox = page.querySelector(".tag-list");
+		const tagBox = slavePage.querySelector(".tag-list");
 		if (tagBox)
 			embedTrendingTags(tagBox, storedTags);
 	}
 
 	const blackEnabler = document.querySelector("disable-all-blacklists");
 	if (blackEnabler) blackEnabler.click();
+
+	return newestId;
 }
 
 function embedTrendingTags(slaveTagBox, storedTags){
@@ -172,7 +183,7 @@ async function viewWatched(event, storedTags, page){
 	window.location.href = qurl;
 }
 
-function toggleSubscription(event, storedTags, tag){
+async function toggleSubscription(event, storedTags, tag){
 	if (VERBOSE_LOGGING)
 		console.log("Received toggle event");
 
@@ -181,13 +192,19 @@ function toggleSubscription(event, storedTags, tag){
 	//CSP halts the execution if I try to call getElementByID
 	//Both browsers are barking, but everything works
 
+	//Another tab (or the popup) may have changed the list since this page loaded.
+	//Re-read it and sync the shared in-page array in place, so every button
+	//and the Watched link on this page keep working with the same list
+	const fresh = (await load("subscriptions")) || [];
+	storedTags.splice(0, storedTags.length, ...fresh);
+
 	if (!storedTags.includes(tag)){
 		if (VERBOSE_LOGGING)
 			console.log("Adding...");
 		mrSandman.textContent = UNSB_MARK;
 		mrSandman.title = UNSB_TITLE;
 		storedTags.push(tag);
-		save({"subscriptions": storedTags});
+		await save({"subscriptions": storedTags});
 		if (DEBUG_LOGGING)
 			console.log("Added successfully");
 	} else {
@@ -198,7 +215,7 @@ function toggleSubscription(event, storedTags, tag){
 			mrSandman.textContent = SUBS_MARK;
 			mrSandman.title = SUBS_TITLE;
 			storedTags.splice(i, 1);
-			save({"subscriptions": storedTags});
+			await save({"subscriptions": storedTags});
 			//save({"lastSeen": 0});
 			if (DEBUG_LOGGING)
 				console.log("Removed");
@@ -211,9 +228,9 @@ function toggleSubscription(event, storedTags, tag){
 //Add subscription buttons to tag list
 function linkifyTags(tagBox, storedTags){
 	tagBox.querySelectorAll(".tag-list-item").forEach(tag => {
-		const name =
-			decodeURIComponent(tag.dataset.name)
-			?? tag.querySelector(".tag-list-name")?.textContent?.trim();
+		const name = tag.dataset.name
+			? decodeURIComponent(tag.dataset.name)
+			: tag.querySelector(".tag-list-name")?.textContent?.trim();
 		if (!name) return;
 
 		tag.append(generateSubscriptionButton(name, storedTags))
